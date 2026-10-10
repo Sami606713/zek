@@ -1,0 +1,14 @@
+{
+    "$schema": "https://langgra.ph/schema.json",
+    "dependencies": [
+        "."
+    ],
+    "graphs": {
+        "chat": "src.app.agent.agent:zek_agent"
+    },
+    "http": {
+        "app": "src.app.api.v1.main:combined_app"
+    },
+    "env": ".env",
+    "image_distro": "wolfi"
+}

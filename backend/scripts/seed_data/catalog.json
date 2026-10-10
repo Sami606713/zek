@@ -1,0 +1,541 @@
+{
+  "_about": "Storefront catalogue, exported from frontend/lib/catalog.ts so the seeded API serves the same products. Product slug = frontend id without the 'p-' prefix (p-vela-35 -> vela-35).",
+  "categories": [
+    {
+      "slug": "audio",
+      "name": "Audio",
+      "blurb": "Turntables, headphones and speakers, picked for everyday listening.",
+      "image": "https://picsum.photos/id/39/1200/1400"
+    },
+    {
+      "slug": "tech",
+      "name": "Tech",
+      "blurb": "Laptops, keyboards and accessories.",
+      "image": "https://picsum.photos/id/0/900/700"
+    },
+    {
+      "slug": "home",
+      "name": "Home",
+      "blurb": "Furniture, lighting and desk.",
+      "image": "https://picsum.photos/id/42/900/700"
+    },
+    {
+      "slug": "style",
+      "name": "Style",
+      "blurb": "Shoes, bags and accessories.",
+      "image": "https://picsum.photos/id/103/900/700"
+    },
+    {
+      "slug": "kitchen",
+      "name": "Kitchen",
+      "blurb": "Coffee, tea and cookware.",
+      "image": "https://picsum.photos/id/431/900/700"
+    }
+  ],
+  "products": [
+    {
+      "id": "p-vela-35",
+      "name": "Vela 35 Film Camera",
+      "brand": "Halden Optics",
+      "category": "tech",
+      "price": 129,
+      "compareAt": 159,
+      "tag": "New",
+      "rating": 4.7,
+      "reviews": 212,
+      "stock": 18,
+      "addedOn": "2026-10-06",
+      "description": "A fully manual 35mm rangefinder for people learning film. Light enough to carry all day, simple enough to master in a weekend.",
+      "details": [
+        "35mm film, ISO 25 to 1600",
+        "40mm f/2.8 lens",
+        "Weighs 410 g",
+        "Refurbished and tested, 1-year warranty"
+      ],
+      "colors": [
+        {
+          "name": "Silver",
+          "hex": "#c9ccd1"
+        },
+        {
+          "name": "Black",
+          "hex": "#1d1e22"
+        }
+      ],
+      "image": "https://picsum.photos/id/250/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/250/1000/1250",
+        "https://picsum.photos/id/250/1250/1000",
+        "https://picsum.photos/id/250/900/900"
+      ]
+    },
+    {
+      "id": "p-twin-bell",
+      "name": "Twin Bell Alarm Clock",
+      "brand": "Kestrel",
+      "category": "home",
+      "price": 39,
+      "rating": 4.4,
+      "reviews": 88,
+      "stock": 42,
+      "addedOn": "2026-10-04",
+      "description": "A brass twin-bell clock with a loud, honest ring. Quiet sweep movement, so it will not tick you awake.",
+      "details": [
+        "Silent sweep movement",
+        "Brass case, glass face",
+        "Runs on 1 AA battery",
+        "11 cm tall"
+      ],
+      "image": "https://picsum.photos/id/357/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/357/1000/1250",
+        "https://picsum.photos/id/357/1250/1000",
+        "https://picsum.photos/id/357/900/900"
+      ]
+    },
+    {
+      "id": "p-flat-keys",
+      "name": "Flat Keys Wireless Keyboard",
+      "brand": "Oberra",
+      "category": "tech",
+      "price": 89,
+      "tag": "Low stock",
+      "rating": 4.6,
+      "reviews": 341,
+      "stock": 4,
+      "addedOn": "2026-09-28",
+      "description": "Low-profile scissor keys with a quiet, short travel. Pairs with three devices and switches between them in one tap.",
+      "details": [
+        "Bluetooth, pairs with 3 devices",
+        "USB-C, about 2 months per charge",
+        "Aluminium top case",
+        "Mac and Windows layouts"
+      ],
+      "colors": [
+        {
+          "name": "Silver",
+          "hex": "#d6d8dc"
+        },
+        {
+          "name": "Graphite",
+          "hex": "#3a3d44"
+        }
+      ],
+      "image": "https://picsum.photos/id/366/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/366/1000/1250",
+        "https://picsum.photos/id/366/1250/1000",
+        "https://picsum.photos/id/366/900/900"
+      ]
+    },
+    {
+      "id": "p-pulse-pad",
+      "name": "Pulse Wireless Controller",
+      "brand": "Northvale",
+      "category": "tech",
+      "price": 54.9,
+      "rating": 4.3,
+      "reviews": 129,
+      "stock": 31,
+      "addedOn": "2026-09-21",
+      "description": "A wireless controller that works with PC, phone and TV boxes. Textured grips and a battery that lasts a long weekend.",
+      "details": [
+        "Bluetooth and 2.4 GHz dongle",
+        "Around 30 hours per charge",
+        "Works with PC, Android and iOS",
+        "Rumble and gyro"
+      ],
+      "image": "https://picsum.photos/id/96/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/96/1000/1250",
+        "https://picsum.photos/id/96/1250/1000",
+        "https://picsum.photos/id/96/900/900"
+      ]
+    },
+    {
+      "id": "p-folio-reader",
+      "name": "Folio E-Reader, 6 inch",
+      "brand": "Papyr",
+      "category": "tech",
+      "price": 119,
+      "tag": "New",
+      "rating": 4.8,
+      "reviews": 506,
+      "stock": 23,
+      "addedOn": "2026-10-08",
+      "description": "A glare-free 6 inch screen with a warm front light for reading at night. Holds thousands of books and weeks of battery.",
+      "details": [
+        "6 inch 300 ppi e-ink display",
+        "Adjustable warm light",
+        "16 GB storage",
+        "Water resistant"
+      ],
+      "image": "https://picsum.photos/id/367/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/367/1000/1250",
+        "https://picsum.photos/id/367/1250/1000",
+        "https://picsum.photos/id/367/900/900"
+      ]
+    },
+    {
+      "id": "p-daily-mug",
+      "name": "Daily Ceramic Mug",
+      "brand": "Sora Home",
+      "category": "kitchen",
+      "price": 24.5,
+      "rating": 4.5,
+      "reviews": 74,
+      "stock": 60,
+      "addedOn": "2026-09-15",
+      "description": "A heavy stoneware mug that keeps coffee warm a little longer. Dishwasher and microwave safe.",
+      "details": [
+        "Stoneware, 350 ml",
+        "Dishwasher safe",
+        "Microwave safe",
+        "Hand glazed, each one varies"
+      ],
+      "image": "https://picsum.photos/id/30/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/30/1000/1250",
+        "https://picsum.photos/id/30/1250/1000",
+        "https://picsum.photos/id/30/900/900"
+      ]
+    },
+    {
+      "id": "p-aria-turntable",
+      "name": "Aria Belt-Drive Turntable",
+      "brand": "Halden Audio",
+      "category": "audio",
+      "price": 249,
+      "compareAt": 289,
+      "rating": 4.7,
+      "reviews": 163,
+      "stock": 9,
+      "addedOn": "2026-09-30",
+      "description": "A belt-drive turntable with a built-in preamp, so it plugs straight into powered speakers. Comes with the cartridge fitted.",
+      "details": [
+        "33 and 45 rpm",
+        "Switchable phono preamp",
+        "Pre-fitted moving magnet cartridge",
+        "Dust cover included"
+      ],
+      "colors": [
+        {
+          "name": "Walnut",
+          "hex": "#6b4a33"
+        },
+        {
+          "name": "White",
+          "hex": "#eceef1"
+        }
+      ],
+      "image": "https://picsum.photos/id/39/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/39/1000/1250",
+        "https://picsum.photos/id/39/1250/1000",
+        "https://picsum.photos/id/39/900/900"
+      ]
+    },
+    {
+      "id": "p-parlor-guitar",
+      "name": "Parlor Acoustic Guitar",
+      "brand": "Fretwell",
+      "category": "audio",
+      "price": 189,
+      "rating": 4.5,
+      "reviews": 57,
+      "stock": 12,
+      "addedOn": "2026-08-30",
+      "description": "A small-bodied acoustic that is easy to hold and loud for its size. A good first guitar and a good couch guitar.",
+      "details": [
+        "Solid spruce top",
+        "Mahogany back and sides",
+        "Gig bag included",
+        "Set up before shipping"
+      ],
+      "image": "https://picsum.photos/id/145/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/145/1000/1250",
+        "https://picsum.photos/id/145/1250/1000",
+        "https://picsum.photos/id/145/900/900"
+      ]
+    },
+    {
+      "id": "p-nova-phone",
+      "name": "Nova 5 Smartphone, 128 GB",
+      "brand": "Lumo",
+      "category": "tech",
+      "price": 499,
+      "compareAt": 549,
+      "rating": 4.4,
+      "reviews": 892,
+      "stock": 27,
+      "addedOn": "2026-09-25",
+      "description": "A compact phone with a strong camera and a battery that gets through a full day. Unlocked for all carriers.",
+      "details": [
+        "6.1 inch OLED display",
+        "128 GB storage",
+        "Dual camera with night mode",
+        "Unlocked, dual SIM"
+      ],
+      "colors": [
+        {
+          "name": "Black",
+          "hex": "#16181d"
+        },
+        {
+          "name": "Silver",
+          "hex": "#cfd2d6"
+        }
+      ],
+      "image": "https://picsum.photos/id/160/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/160/1000/1250",
+        "https://picsum.photos/id/160/1250/1000",
+        "https://picsum.photos/id/160/900/900"
+      ]
+    },
+    {
+      "id": "p-glide-mouse",
+      "name": "Glide Wireless Mouse",
+      "brand": "Oberra",
+      "category": "tech",
+      "price": 39,
+      "rating": 4.2,
+      "reviews": 210,
+      "stock": 55,
+      "addedOn": "2026-08-12",
+      "description": "A slim wireless mouse with silent clicks. Matches the Flat Keys keyboard and pairs the same way.",
+      "details": [
+        "Silent switches",
+        "USB-C rechargeable",
+        "Bluetooth, 3 devices",
+        "Weighs 78 g"
+      ],
+      "image": "https://picsum.photos/id/201/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/201/1000/1250",
+        "https://picsum.photos/id/201/1250/1000",
+        "https://picsum.photos/id/201/900/900"
+      ]
+    },
+    {
+      "id": "p-royal-typewriter",
+      "name": "Desk Typewriter, Restored",
+      "brand": "Kestrel",
+      "category": "home",
+      "price": 289,
+      "tag": "Low stock",
+      "rating": 4.9,
+      "reviews": 31,
+      "stock": 2,
+      "addedOn": "2026-10-01",
+      "description": "A restored mid-century typewriter, cleaned, oiled and fitted with a new ribbon. Ready to write on arrival.",
+      "details": [
+        "Fully serviced",
+        "New ribbon fitted",
+        "Carry case included",
+        "One of a kind, finish varies"
+      ],
+      "image": "https://picsum.photos/id/403/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/403/1000/1250",
+        "https://picsum.photos/id/403/1250/1000",
+        "https://picsum.photos/id/403/900/900"
+      ]
+    },
+    {
+      "id": "p-studio-notebooks",
+      "name": "Studio Notebook Set of 3",
+      "brand": "Papyr",
+      "category": "home",
+      "price": 18,
+      "rating": 4.6,
+      "reviews": 144,
+      "stock": 80,
+      "addedOn": "2026-08-20",
+      "description": "Three lay-flat notebooks with thick paper that handles fountain pens. Dotted, lined and blank.",
+      "details": [
+        "A5, 120 pages each",
+        "100 gsm paper",
+        "Lay-flat binding",
+        "Dotted, lined and blank"
+      ],
+      "image": "https://picsum.photos/id/20/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/20/1000/1250",
+        "https://picsum.photos/id/20/1250/1000",
+        "https://picsum.photos/id/20/900/900"
+      ]
+    },
+    {
+      "id": "p-field-sneakers",
+      "name": "Field Canvas Sneakers",
+      "brand": "Northvale",
+      "category": "style",
+      "price": 72,
+      "rating": 4.3,
+      "reviews": 318,
+      "stock": 36,
+      "addedOn": "2026-09-10",
+      "description": "Everyday canvas high-tops with a cushioned insole. Broken in from the first wear.",
+      "details": [
+        "Cotton canvas upper",
+        "Vulcanised rubber sole",
+        "Cushioned insole",
+        "Sizes 36 to 46"
+      ],
+      "colors": [
+        {
+          "name": "Navy",
+          "hex": "#1f2a44"
+        },
+        {
+          "name": "Chalk",
+          "hex": "#e7e8ea"
+        }
+      ],
+      "image": "https://picsum.photos/id/103/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/103/1000/1250",
+        "https://picsum.photos/id/103/1250/1000",
+        "https://picsum.photos/id/103/900/900"
+      ]
+    },
+    {
+      "id": "p-satin-heels",
+      "name": "Satin Pointed Heels",
+      "brand": "Maison Ilka",
+      "category": "style",
+      "price": 128,
+      "tag": "New",
+      "rating": 4.1,
+      "reviews": 46,
+      "stock": 14,
+      "addedOn": "2026-10-07",
+      "description": "Pointed satin pumps on a 9 cm heel with a padded footbed for longer evenings.",
+      "details": [
+        "Satin upper",
+        "9 cm heel",
+        "Padded leather footbed",
+        "Sizes 35 to 41"
+      ],
+      "image": "https://picsum.photos/id/21/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/21/1000/1250",
+        "https://picsum.photos/id/21/1250/1000",
+        "https://picsum.photos/id/21/900/900"
+      ]
+    },
+    {
+      "id": "p-tea-press",
+      "name": "Glass Tea Press, 600 ml",
+      "brand": "Sora Home",
+      "category": "kitchen",
+      "price": 34,
+      "rating": 4.6,
+      "reviews": 97,
+      "stock": 40,
+      "addedOn": "2026-09-05",
+      "description": "A borosilicate glass press for loose-leaf tea. The fine steel mesh keeps leaves out of your cup.",
+      "details": [
+        "Borosilicate glass",
+        "Stainless steel mesh filter",
+        "600 ml",
+        "Dishwasher safe"
+      ],
+      "image": "https://picsum.photos/id/225/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/225/1000/1250",
+        "https://picsum.photos/id/225/1250/1000",
+        "https://picsum.photos/id/225/900/900"
+      ]
+    },
+    {
+      "id": "p-origin-beans",
+      "name": "Single Origin Coffee Beans, 1 kg",
+      "brand": "Ridge Roasters",
+      "category": "kitchen",
+      "price": 31,
+      "rating": 4.8,
+      "reviews": 403,
+      "stock": 64,
+      "addedOn": "2026-09-18",
+      "description": "Medium-roast whole beans from a single farm in Huila, Colombia. Notes of cocoa, red apple and caramel.",
+      "details": [
+        "Whole bean, 1 kg",
+        "Medium roast",
+        "Roasted within 7 days of shipping",
+        "Huila, Colombia"
+      ],
+      "image": "https://picsum.photos/id/425/800/1000",
+      "gallery": [
+        "https://picsum.photos/id/425/1000/1250",
+        "https://picsum.photos/id/425/1250/1000",
+        "https://picsum.photos/id/425/900/900"
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "slug": "work-from-home",
+      "title": "Work from home setup",
+      "blurb": "A quieter, tidier desk. The keyboard, mouse and small things that make long days easier.",
+      "image": "https://picsum.photos/id/445/1600/1000",
+      "productIds": [
+        "p-flat-keys",
+        "p-glide-mouse",
+        "p-studio-notebooks",
+        "p-twin-bell",
+        "p-daily-mug",
+        "p-folio-reader"
+      ]
+    },
+    {
+      "slug": "gifts-under-50",
+      "title": "Gifts under $50",
+      "blurb": "Easy wins for birthdays and thank-yous. Every pick is under $50 and ships free with a second item.",
+      "image": "https://picsum.photos/id/20/1200/1200",
+      "productIds": [
+        "p-studio-notebooks",
+        "p-daily-mug",
+        "p-origin-beans",
+        "p-tea-press",
+        "p-twin-bell",
+        "p-glide-mouse"
+      ]
+    },
+    {
+      "slug": "coffee-and-tea",
+      "title": "Coffee and tea ritual",
+      "blurb": "Beans, a good press and a mug that keeps it warm.",
+      "image": "https://picsum.photos/id/63/1200/1200",
+      "productIds": [
+        "p-origin-beans",
+        "p-tea-press",
+        "p-daily-mug"
+      ]
+    },
+    {
+      "slug": "new-this-month",
+      "title": "New this month",
+      "blurb": "The latest arrivals in the store, from film cameras to e-readers.",
+      "image": "https://picsum.photos/id/48/1200/1200",
+      "productIds": [
+        "p-folio-reader",
+        "p-satin-heels",
+        "p-vela-35",
+        "p-twin-bell",
+        "p-royal-typewriter"
+      ]
+    }
+  ],
+  "featured_product_ids": [
+    "p-vela-35",
+    "p-twin-bell",
+    "p-flat-keys",
+    "p-pulse-pad",
+    "p-folio-reader",
+    "p-daily-mug"
+  ]
+}
