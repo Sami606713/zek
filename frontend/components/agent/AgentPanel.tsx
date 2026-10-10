@@ -75,9 +75,13 @@ function ProductChip({ product: productData }: { product: ProductData }) {
     : productData.compareAt;
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      add(productId);
-    }
+    add(productId, quantity, undefined, undefined, {
+      name: productData.name || '',
+      brand: productData.brand || '',
+      image: imageUrl,
+      price,
+      compareAt: comparePrice,
+    });
     setAdded(true);
     window.setTimeout(() => {
       setAdded(false);
@@ -100,7 +104,7 @@ function ProductChip({ product: productData }: { product: ProductData }) {
           fill 
           sizes="220px" 
           className="object-cover" 
-          unoptimized={imageUrl.includes('picsum.photos')}
+          unoptimized={imageUrl.startsWith('http://') || imageUrl.startsWith('https://')}
         />
       </Link>
       <div className="flex flex-1 flex-col gap-3 p-3">
