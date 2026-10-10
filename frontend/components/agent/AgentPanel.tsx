@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useStream } from "@langchain/react";
 import { AIMessage, HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
-import { ArrowClockwise, Check, Plus, Sparkle, WarningCircle, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowClockwise, Check, Minus, Plus, Sparkle, WarningCircle, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   Conversation,
   ConversationContent,
@@ -39,57 +39,139 @@ const suggestions = [
 
 // ─── Product cards for tool results ──────────────────────────────────────────
 
-function ProductChip({ id }: { id: string }) {
-  const product = getProduct(id);
+interface ProductData {
+  id?: string;
+  slug?: string;
+  name?: string;
+  price?: string | number;
+  compare_at_price?: string | number;
+  compareAt?: number;
+  image?: string | { url?: string };
+  brand?: string;
+}
+
+function ProductChip({ product: productData }: { product: ProductData }) {
   const add = useCartStore((s) => s.add);
   const closePanel = useAgentStore((s) => s.closePanel);
   const [added, setAdded] = useState(false);
-  if (!product) return null;
+  const [quantity, setQuantity] = useState(1);
+
+  if (!productData || !productData.name) return null;
+
+  const productId = productData.id || productData.slug || '';
+  const productSlug = productData.slug || productData.id || '';
+  const imageUrl = typeof productData.image === 'string' 
+    ? productData.image 
+    : (productData.image?.url || '/placeholder-product.png');
+  
+  const price = typeof productData.price === 'string' 
+    ? parseFloat(productData.price) 
+    : (productData.price || 0);
+  
+  const comparePrice = productData.compare_at_price 
+    ? (typeof productData.compare_at_price === 'string' 
+        ? parseFloat(productData.compare_at_price) 
+        : productData.compare_at_price)
+    : productData.compareAt;
+
+  const handleAddToCart = () => {
+    for (let i = 0; i < quantity; i++) {
+      add(productId);
+    }
+    setAdded(true);
+    window.setTimeout(() => {
+      setAdded(false);
+      setQuantity(1);
+    }, 1600);
+  };
 
   return (
-    <div className="flex w-[200px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-line bg-surface">
+    <div className="flex w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
       <Link
-        href={`/products/${product.id}`}
+        href={`/products/${productSlug}`}
         onClick={() => {
           if (window.matchMedia("(max-width: 767px)").matches) closePanel();
         }}
         className="relative block aspect-[4/3] bg-surface-2"
       >
-        <Image src={product.image} alt={product.name} fill sizes="200px" className="object-cover" />
+        <Image 
+          src={imageUrl} 
+          alt={productData.name} 
+          fill 
+          sizes="220px" 
+          className="object-cover" 
+          unoptimized={imageUrl.includes('picsum.photos')}
+        />
       </Link>
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      <div className="flex flex-1 flex-col gap-3 p-3">
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium text-ink">{product.name}</p>
-          <p className="text-[13px] text-subtle">
-            <span className="font-medium text-ink">{formatPrice(product.price)}</span>
-            {product.compareAt && <span className="ml-1.5 line-through">{formatPrice(product.compareAt)}</span>}
+          {productData.brand && (
+            <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">{productData.brand}</p>
+          )}
+          <p className="truncate text-[13px] font-medium text-ink">{productData.name}</p>
+          <p className="mt-1 text-[13px] text-subtle">
+            <span className="font-semibold text-ink">{formatPrice(price)}</span>
+            {comparePrice && comparePrice > price && (
+              <span className="ml-1.5 text-[12px] line-through">{formatPrice(comparePrice)}</span>
+            )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            add(product.id);
-            setAdded(true);
-            window.setTimeout(() => setAdded(false), 1600);
-          }}
-          className="mt-auto flex items-center justify-center gap-1.5 rounded-full bg-ink py-2 text-[13px] font-medium text-bg transition active:scale-[0.97]"
-        >
-          {added ? <Check size={14} weight="bold" /> : <Plus size={14} weight="bold" />}
-          {added ? "Added" : "Add to bag"}
-        </button>
+        
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-full border border-line bg-bg">
+            <button
+              type="button"
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              disabled={quantity <= 1}
+              className="grid size-7 place-items-center text-ink transition hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent"
+              aria-label="Decrease quantity"
+            >
+              <Minus size={12} weight="bold" />
+            </button>
+            <span className="w-8 text-center text-[13px] font-medium text-ink">{quantity}</span>
+            <button
+              type="button"
+              onClick={() => setQuantity(Math.min(10, quantity + 1))}
+              disabled={quantity >= 10}
+              className="grid size-7 place-items-center text-ink transition hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent"
+              aria-label="Increase quantity"
+            >
+              <Plus size={12} weight="bold" />
+            </button>
+          </div>
+          
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            disabled={added}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink py-1.5 text-[13px] font-medium text-bg transition hover:opacity-90 active:scale-[0.97] disabled:opacity-70"
+          >
+            {added ? (
+              <>
+                <Check size={14} weight="bold" /> Added
+              </>
+            ) : (
+              <>
+                <Plus size={14} weight="bold" /> Add
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// Pull any ZEK product ids out of a tool result (string JSON, arrays or objects).
-function productIdsFrom(output: unknown): string[] {
-  const found = new Set<string>();
+// Pull any product data out of a tool result (string JSON, arrays or objects).
+function productsFrom(output: unknown): ProductData[] {
+  const found: ProductData[] = [];
+  const seen = new Set<string>();
+  
   const visit = (v: unknown, depth: number) => {
-    if (depth > 4 || found.size >= 6 || v == null) return;
-    if (typeof v === "string") {
-      if (getProduct(v)) found.add(v);
-      else if (/^[[{]/.test(v.trim())) {
+    if (depth > 4 || found.length >= 6 || v == null) return;
+    
+    if (typeof v === 'string') {
+      if (/^[[{]/.test(v.trim())) {
         try {
           visit(JSON.parse(v), depth + 1);
         } catch {
@@ -98,15 +180,40 @@ function productIdsFrom(output: unknown): string[] {
       }
       return;
     }
-    if (Array.isArray(v)) return v.forEach((x) => visit(x, depth + 1));
-    if (typeof v === "object") {
+    
+    if (Array.isArray(v)) {
+      return v.forEach((x) => visit(x, depth + 1));
+    }
+    
+    if (typeof v === 'object') {
       const o = v as Record<string, unknown>;
-      for (const key of ["id", "product_id", "productId"]) if (typeof o[key] === "string" && getProduct(o[key] as string)) found.add(o[key] as string);
+      
+      // Check if this object looks like a product
+      if (o.name && (o.id || o.slug) && (o.price !== undefined)) {
+        const id = String(o.id || o.slug || '');
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          found.push({
+            id: o.id as string,
+            slug: o.slug as string,
+            name: o.name as string,
+            price: o.price as string | number,
+            compare_at_price: o.compare_at_price as string | number,
+            compareAt: o.compareAt as number,
+            image: o.image as string | { url?: string },
+            brand: o.brand as string,
+          });
+        }
+        return;
+      }
+      
+      // Otherwise recurse into the object
       Object.values(o).forEach((x) => visit(x, depth + 1));
     }
   };
+  
   visit(output, 0);
-  return [...found];
+  return found;
 }
 
 // ─── Message rendering ───────────────────────────────────────────────────────
@@ -146,13 +253,13 @@ function AssistantTurn({
       {(msg.tool_calls ?? []).map((tc, i) => {
         const result = tc.id ? results.get(tc.id) : undefined;
         const output = result ? (result.text || result.content) : undefined;
-        const ids = result ? productIdsFrom(result.content) : [];
+        const products = result ? productsFrom(result.content) : [];
         const failed = result?.status === "error";
-        if (ids.length) {
+        if (products.length > 0) {
           return (
             <div key={tc.id ?? i} className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
-              {ids.map((id) => (
-                <ProductChip key={id} id={id} />
+              {products.map((product, idx) => (
+                <ProductChip key={product.id || product.slug || idx} product={product} />
               ))}
             </div>
           );

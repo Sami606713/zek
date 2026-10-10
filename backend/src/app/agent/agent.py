@@ -2,6 +2,7 @@ from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from src.app.agent.context.context import ZekContext
 from src.app.agent.middlewares.auth_middleware import ZekAuthMiddleware
+from src.app.agent.tools import search_products
 from dotenv import load_dotenv
 import os
 import asyncio
@@ -19,9 +20,10 @@ def create_zek_agent():
     agent = create_agent(
         model=model,
 
-        system_prompt="You are a helpful assistant who help zyro customers zyro is a clothing brand.",
+        system_prompt="You are a helpful assistant who help zyro customers. Zyro is a clothing brand. You can search the product catalog using the search_products tool. When users ask about products, use this tool to find relevant items and present them.",
         context_schema=ZekContext,
-        middleware=[ZekAuthMiddleware()]
+        middleware=[ZekAuthMiddleware()],
+        tools=[search_products]
     )
     return agent
 
