@@ -22,9 +22,9 @@ function extractMessage(detail: unknown): string {
 
 export async function login(email: string, password: string): Promise<SessionUser> {
   try {
-    const res = await api.post<ApiToken>("/users/login", { email, password });
-    const user = await api.get<ApiUser>("/users/me", { auth: true });
-    const session = mapUser(user);
+    const res = await api.post<ApiToken>("/users/login", { email, password }, { auth: false });
+    // The new token isn't in the stored session yet, so pass it explicitly.
+    const session = await fetchProfile(res.access_token);
     session.token = res.access_token;
     session.refreshToken = res.refresh_token;
     return session;
@@ -44,18 +44,18 @@ export async function register(input: {
   password: string;
 }): Promise<SessionUser> {
   try {
-    const res = await api.post<ApiToken>("/users/register", {
-      full_name: input.fullName,
-      username: input.username,
-      email: input.email,
-      phone_number: input.phone || null,
-      password: input.password,
-    });
-    const user = await api.get<ApiUser>("/users/me", { auth: true });
-    const session = mapUser(user);
-    session.token = res.access_token;
-    session.refreshToken = res.refresh_token;
-    return session;
+    // POST /users/register returns the new user (201), not tokens.
+    await api.post<ApiUser>(
+      "/users/register",
+      {
+        full_name: input.fullName,
+        username: input.username,
+        email: input.email,
+        phone_number: input.phone || null,
+        password: input.password,
+      },
+      { auth: false },
+    );
   } catch (e) {
     if (e instanceof Error) {
       const msg = extractMessage((e as { message?: unknown }).message);
@@ -68,6 +68,8 @@ export async function register(input: {
     }
     throw new AuthError("Registration failed");
   }
+  // Account exists now; sign in to get tokens and the profile.
+  return login(input.email, input.password);
 }
 
 export async function fetchProfile(token: string): Promise<SessionUser> {

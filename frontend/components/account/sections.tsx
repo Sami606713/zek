@@ -23,14 +23,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { countries } from "@/lib/checkoutValidation";
 import {
-  AuthError,
   passwordChangeSchema,
   passwordStrength,
   profileSchema,
   type PasswordChangeInput,
   type ProfileInput,
 } from "@/lib/auth";
-import { changePassword, deleteAccount, updateProfile } from "@/lib/api/auth";
+import { AuthError, changePassword, deleteAccount, updateProfile } from "@/lib/api/auth";
 import { useUserStore, type SessionUser } from "@/store/userStore";
 import { useAddressStore, type Address } from "@/store/addressStore";
 
@@ -98,13 +97,19 @@ export function ProfileSection({ user }: { user: SessionUser }) {
   const onSubmit = async (values: ProfileInput) => {
     try {
       const token = user.token;
-      if (!token) return;
+      if (!token) {
+        setError("fullName", { message: "Your session has expired. Log out and log in again." });
+        return;
+      }
       const updated = await updateProfile(token, values);
       updateUser({ fullName: updated.fullName, username: updated.username, email: updated.email, phone: updated.phone });
       reset(values);
       flash();
     } catch (e) {
-      if (e instanceof AuthError && (e.field === "email" || e.field === "username")) setError(e.field, { message: e.message });
+      const msg = e instanceof Error ? e.message : "Couldn't save your profile. Please try again.";
+      const lower = msg.toLowerCase();
+      const field = lower.includes("email") ? "email" : lower.includes("username") ? "username" : lower.includes("phone") ? "phone" : "fullName";
+      setError(field, { message: msg });
     }
   };
 
@@ -317,12 +322,15 @@ export function SecuritySection({ user }: { user: SessionUser }) {
   const onSubmit = async (v: PasswordChangeInput) => {
     try {
       const token = user.token;
-      if (!token) return;
+      if (!token) {
+        setError("current", { message: "Your session has expired. Log out and log in again." });
+        return;
+      }
       await changePassword(token, v.current, v.next);
       reset();
       flash();
     } catch (e) {
-      if (e instanceof AuthError) setError("current", { message: e.message });
+      setError("current", { message: e instanceof AuthError ? e.message : "Couldn't change your password. Please try again." });
     }
   };
 

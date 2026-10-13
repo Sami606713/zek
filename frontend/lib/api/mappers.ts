@@ -30,22 +30,23 @@ export function mapUser(u: ApiUser): SessionUser {
 }
 
 export function mapProductListItem(p: ApiProductListItem): Product {
+  const image = p.image?.url ?? p.image_url ?? "";
   return {
     id: p.slug,
     name: p.name,
     brand: p.brand,
-    category: p.category_slug as Product["category"],
+    category: (p.category?.slug ?? p.category_slug) as Product["category"],
     price: parseFloat(p.price),
     compareAt: p.compare_at_price ? parseFloat(p.compare_at_price) : undefined,
-    image: p.image_url ?? "",
-    gallery: p.image_url ? [p.image_url] : [],
+    image,
+    gallery: image ? [image] : [],
     rating: p.rating_avg,
     reviews: p.review_count,
-    stock: 0,
+    stock: p.total_stock ?? 0,
     addedOn: new Date().toISOString().slice(0, 10),
     description: "",
     details: [],
-    colors: [],
+    colors: p.colors ?? [],
   };
 }
 
@@ -103,14 +104,15 @@ export function mapCollectionDetail(c: ApiCollectionDetail): Collection {
 export function mapCartItem(item: ApiCartItem): CartLine {
   return {
     key: item.id,
-    id: item.product_slug,
+    id: item.slug ?? item.product_slug ?? "",
     color: item.color_name ?? undefined,
     quantity: item.quantity,
     product: {
-      name: item.product_name,
-      brand: "",
+      name: item.name ?? item.product_name ?? "",
+      brand: item.brand ?? "",
       image: item.image_url ?? "",
       price: parseFloat(item.unit_price),
+      compareAt: item.compare_at_price ? parseFloat(item.compare_at_price) : undefined,
     },
   };
 }

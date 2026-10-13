@@ -9,8 +9,8 @@ import { motion } from "motion/react";
 import { CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { Field } from "@/components/checkout/Field";
 import { PasswordField } from "./PasswordField";
-import { login, loginSchema, type LoginInput } from "@/lib/auth";
-import { AuthError } from "@/lib/api/auth";
+import { loginSchema, type LoginInput } from "@/lib/auth";
+import { AuthError, login } from "@/lib/api/auth";
 import { useUserStore } from "@/store/userStore";
 
 const safeNext = (next: string | null) => (next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
@@ -29,7 +29,7 @@ export function LoginForm() {
   const onSubmit = async (values: LoginInput) => {
     setFormError(null);
     try {
-      const user = await login(values);
+      const user = await login(values.email, values.password);
       signIn(user);
       router.push(safeNext(params.get("next")));
     } catch (e) {

@@ -37,9 +37,14 @@ export interface ApiProductListItem {
   brand: string;
   price: string;
   compare_at_price: string | null;
-  image_url: string | null;
-  category_slug: string;
-  category_name: string;
+  // Backend sends nested objects; the flat fields are kept for compatibility.
+  image?: { url: string } | null;
+  category?: { slug: string; name: string } | null;
+  colors?: { name: string; hex: string }[];
+  total_stock?: number;
+  image_url?: string | null;
+  category_slug?: string;
+  category_name?: string;
   rating_avg: number;
   review_count: number;
   is_featured: boolean;
@@ -108,8 +113,15 @@ export interface ApiCartItem {
   id: string;
   variant_id: string;
   product_id: string;
-  product_name: string;
-  product_slug: string;
+  // Backend CartLine fields
+  name?: string;
+  slug?: string;
+  brand?: string | null;
+  compare_at_price?: string | null;
+  max_quantity?: number;
+  // Older field names, kept for compatibility
+  product_name?: string;
+  product_slug?: string;
   image_url: string | null;
   color_name: string | null;
   size: string | null;

@@ -1,12 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useStream } from "@langchain/react";
 import { AIMessage, HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
-import { ArrowClockwise, Check, Minus, Plus, Sparkle, WarningCircle, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowClockwise, Sparkle, WarningCircle, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   Conversation,
   ConversationContent,
@@ -25,10 +23,10 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { formatPrice, getProduct } from "@/lib/catalog";
+import { ChatProductList, type ChatProduct } from "./ChatProductCard";
 import { AGENT_API_URL, AGENT_ASSISTANT_ID } from "@/lib/agent/config";
 import { useAgentStore } from "@/store/agentStore";
-import { useCartStore } from "@/store/cartStore";
+import { useUserStore } from "@/store/userStore";
 
 const suggestions = [
   "A film camera for a beginner",
@@ -39,142 +37,14 @@ const suggestions = [
 
 // ─── Product cards for tool results ──────────────────────────────────────────
 
-interface ProductData {
-  id?: string;
-  slug?: string;
-  name?: string;
-  price?: string | number;
-  compare_at_price?: string | number;
-  compareAt?: number;
-  image?: string | { url?: string };
-  brand?: string;
-}
-
-function ProductChip({ product: productData }: { product: ProductData }) {
-  const add = useCartStore((s) => s.add);
-  const closePanel = useAgentStore((s) => s.closePanel);
-  const [added, setAdded] = useState(false);
-  const [quantity, setQuantity] = useState(1);
-
-  if (!productData || !productData.name) return null;
-
-  const productId = productData.id || productData.slug || '';
-  const productSlug = productData.slug || productData.id || '';
-  const imageUrl = typeof productData.image === 'string' 
-    ? productData.image 
-    : (productData.image?.url || '/placeholder-product.png');
-  
-  const price = typeof productData.price === 'string' 
-    ? parseFloat(productData.price) 
-    : (productData.price || 0);
-  
-  const comparePrice = productData.compare_at_price 
-    ? (typeof productData.compare_at_price === 'string' 
-        ? parseFloat(productData.compare_at_price) 
-        : productData.compare_at_price)
-    : productData.compareAt;
-
-  const handleAddToCart = () => {
-    add(productId, quantity, undefined, undefined, {
-      name: productData.name || '',
-      brand: productData.brand || '',
-      image: imageUrl,
-      price,
-      compareAt: comparePrice,
-    });
-    setAdded(true);
-    window.setTimeout(() => {
-      setAdded(false);
-      setQuantity(1);
-    }, 1600);
-  };
-
-  return (
-    <div className="flex w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-      <Link
-        href={`/products/${productSlug}`}
-        onClick={() => {
-          if (window.matchMedia("(max-width: 767px)").matches) closePanel();
-        }}
-        className="relative block aspect-[4/3] bg-surface-2"
-      >
-        <Image 
-          src={imageUrl} 
-          alt={productData.name} 
-          fill 
-          sizes="220px" 
-          className="object-cover" 
-          unoptimized={imageUrl.startsWith('http://') || imageUrl.startsWith('https://')}
-        />
-      </Link>
-      <div className="flex flex-1 flex-col gap-3 p-3">
-        <div className="min-w-0">
-          {productData.brand && (
-            <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">{productData.brand}</p>
-          )}
-          <p className="truncate text-[13px] font-medium text-ink">{productData.name}</p>
-          <p className="mt-1 text-[13px] text-subtle">
-            <span className="font-semibold text-ink">{formatPrice(price)}</span>
-            {comparePrice && comparePrice > price && (
-              <span className="ml-1.5 text-[12px] line-through">{formatPrice(comparePrice)}</span>
-            )}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-full border border-line bg-bg">
-            <button
-              type="button"
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              disabled={quantity <= 1}
-              className="grid size-7 place-items-center text-ink transition hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent"
-              aria-label="Decrease quantity"
-            >
-              <Minus size={12} weight="bold" />
-            </button>
-            <span className="w-8 text-center text-[13px] font-medium text-ink">{quantity}</span>
-            <button
-              type="button"
-              onClick={() => setQuantity(Math.min(10, quantity + 1))}
-              disabled={quantity >= 10}
-              className="grid size-7 place-items-center text-ink transition hover:bg-surface-2 disabled:opacity-30 disabled:hover:bg-transparent"
-              aria-label="Increase quantity"
-            >
-              <Plus size={12} weight="bold" />
-            </button>
-          </div>
-          
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={added}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink py-1.5 text-[13px] font-medium text-bg transition hover:opacity-90 active:scale-[0.97] disabled:opacity-70"
-          >
-            {added ? (
-              <>
-                <Check size={14} weight="bold" /> Added
-              </>
-            ) : (
-              <>
-                <Plus size={14} weight="bold" /> Add
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Pull any product data out of a tool result (string JSON, arrays or objects).
-function productsFrom(output: unknown): ProductData[] {
-  const found: ProductData[] = [];
+// Pull products out of a tool result (JSON string, arrays or nested objects).
+function productsFrom(output: unknown): ChatProduct[] {
+  const found: ChatProduct[] = [];
   const seen = new Set<string>();
-  
+
   const visit = (v: unknown, depth: number) => {
-    if (depth > 4 || found.length >= 6 || v == null) return;
-    
-    if (typeof v === 'string') {
+    if (depth > 5 || found.length >= 12 || v == null) return;
+    if (typeof v === "string") {
       if (/^[[{]/.test(v.trim())) {
         try {
           visit(JSON.parse(v), depth + 1);
@@ -184,38 +54,20 @@ function productsFrom(output: unknown): ProductData[] {
       }
       return;
     }
-    
-    if (Array.isArray(v)) {
-      return v.forEach((x) => visit(x, depth + 1));
-    }
-    
-    if (typeof v === 'object') {
+    if (Array.isArray(v)) return v.forEach((x) => visit(x, depth + 1));
+    if (typeof v === "object") {
       const o = v as Record<string, unknown>;
-      
-      // Check if this object looks like a product
-      if (o.name && (o.id || o.slug) && (o.price !== undefined)) {
-        const id = String(o.id || o.slug || '');
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          found.push({
-            id: o.id as string,
-            slug: o.slug as string,
-            name: o.name as string,
-            price: o.price as string | number,
-            compare_at_price: o.compare_at_price as string | number,
-            compareAt: o.compareAt as number,
-            image: o.image as string | { url?: string },
-            brand: o.brand as string,
-          });
+      if (typeof o.name === "string" && typeof o.slug === "string" && o.price !== undefined) {
+        if (!seen.has(o.slug)) {
+          seen.add(o.slug);
+          found.push(o as unknown as ChatProduct);
         }
         return;
       }
-      
-      // Otherwise recurse into the object
       Object.values(o).forEach((x) => visit(x, depth + 1));
     }
   };
-  
+
   visit(output, 0);
   return found;
 }
@@ -260,13 +112,7 @@ function AssistantTurn({
         const products = result ? productsFrom(result.content) : [];
         const failed = result?.status === "error";
         if (products.length > 0) {
-          return (
-            <div key={tc.id ?? i} className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
-              {products.map((product, idx) => (
-                <ProductChip key={product.id || product.slug || idx} product={product} />
-              ))}
-            </div>
-          );
+          return <ChatProductList key={tc.id ?? i} products={products} />;
         }
         return (
           <Tool key={tc.id ?? i}>
@@ -327,7 +173,14 @@ export function AgentPanel() {
     const t = text.trim();
     if (!t || stream.isLoading) return;
     setLastPrompt(t);
-    void stream.submit({ messages: [{ type: "human", content: t }] });
+    // The agent reads the shopper's JWT from its runtime context (ZekContext.token).
+    // LangGraph copies config.configurable into context when no context is sent.
+    // Read it at send time so a fresh login or token refresh is picked up.
+    const token = useUserStore.getState().user?.token ?? "";
+    void stream.submit(
+      { messages: [{ type: "human", content: t }] },
+      { config: { configurable: { token } } },
+    );
   };
 
   // Send a prompt handed over by the hero ask-bar or another "Ask ZEK" trigger.

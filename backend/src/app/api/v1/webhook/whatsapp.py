@@ -6,8 +6,8 @@ import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 
-from app.agent.agent import zek_agent
-from app.agent.context.context import ZekContext
+from src.app.agent.agent import zek_agent
+from src.app.agent.context.context import ZekContext
 
 router = APIRouter(
     prefix="/api/v1/webhooks/whatsapp",
