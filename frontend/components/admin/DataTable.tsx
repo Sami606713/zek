@@ -41,6 +41,15 @@ type DataTableProps<T> = {
   pageSize?: number;
   emptyText?: string;
   getRowId?: (row: T) => string;
+  /**
+   * Server mode: `data` is one page from the API. The server pages and filters, so the
+   * table only shows rows and asks for other pages. Pair it with `search` for server search.
+   */
+  server?: { total: number; pageIndex: number; onPageChange: (pageIndex: number) => void };
+  /** Controlled search box (for server search). */
+  search?: { value: string; onChange: (value: string) => void };
+  /** Dims the rows while a new page or filter loads. */
+  busy?: boolean;
 };
 
 export function selectColumn<T>(): ColumnDef<T, unknown> {
@@ -93,6 +102,9 @@ export function DataTable<T>({
   pageSize = 12,
   emptyText = "Nothing here yet.",
   getRowId,
+  server,
+  search,
+  busy = false,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState(initialSearch);
@@ -102,12 +114,27 @@ export function DataTable<T>({
   const table = useReactTable({
     data,
     columns: selectable ? [selectColumn<T>(), ...columns] : columns,
-    state: { sorting, globalFilter, rowSelection },
+    state: {
+      sorting,
+      globalFilter,
+      rowSelection,
+      ...(server && { pagination: { pageIndex: server.pageIndex, pageSize } }),
+    },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
     enableRowSelection: selectable,
     getRowId,
+    ...(server && {
+      manualPagination: true,
+      manualFiltering: true,
+      pageCount: Math.ceil(server.total / pageSize),
+      onPaginationChange: (updater) => {
+        const prev = { pageIndex: server.pageIndex, pageSize };
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        server.onPageChange(next.pageIndex);
+      },
+    }),
     globalFilterFn: globalFilterFn
       ? (row: Row<T>, _id, value: string) => globalFilterFn(row.original, String(value).toLowerCase())
       : "includesString",
@@ -119,7 +146,7 @@ export function DataTable<T>({
   });
 
   const selected = table.getSelectedRowModel().rows.map((r) => r.original);
-  const total = table.getFilteredRowModel().rows.length;
+  const total = server ? server.total : table.getFilteredRowModel().rows.length;
   const { pageIndex } = table.getState().pagination;
   const from = total === 0 ? 0 : pageIndex * pageSize + 1;
   const to = Math.min(total, (pageIndex + 1) * pageSize);
@@ -133,8 +160,8 @@ export function DataTable<T>({
               <span className="sr-only">{searchPlaceholder}</span>
               <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
               <Input
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
+                value={search ? search.value : globalFilter}
+                onChange={(e) => (search ? search.onChange(e.target.value) : setGlobalFilter(e.target.value))}
                 placeholder={searchPlaceholder}
                 className="h-9 bg-surface pl-9"
               />
@@ -155,7 +182,10 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div
+        aria-busy={busy}
+        className={`overflow-hidden rounded-xl border border-line bg-surface transition-opacity ${busy ? "opacity-60" : ""}`}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (

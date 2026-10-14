@@ -26,6 +26,8 @@ export function mapUser(u: ApiUser): SessionUser {
     email: u.email,
     phone: u.phone_number ?? undefined,
     createdAt: u.created_at,
+    role: u.role,
+    isAdmin: u.role === "admin" || u.is_superuser,
   };
 }
 

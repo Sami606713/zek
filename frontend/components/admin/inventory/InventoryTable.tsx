@@ -3,130 +3,206 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { ArrowCounterClockwise, Minus, Plus } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ImageSquare, Minus, Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, SortHeader } from "@/components/admin/DataTable";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DataTable } from "@/components/admin/DataTable";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatCard } from "@/components/admin/StatCard";
-import { adminProducts, type AdminProduct } from "@/lib/admin/mock";
+import { CardsSkeleton, ErrorState, TableSkeleton } from "@/components/admin/states";
 import { formatMoney } from "@/lib/admin/format";
+import { unoptimized } from "@/lib/admin/images";
+import { errorMessage, useAdminQuery } from "@/lib/admin/useAdminQuery";
+import { adminInventory, type InventoryQuery, type InventoryRow, type StockLevel } from "@/lib/api/admin";
 
-type Filter = "all" | "low" | "out";
-const level = (p: AdminProduct) => (p.stock === 0 ? "out" : p.stock <= p.lowStockThreshold ? "low" : "ok");
+const PAGE_SIZE = 50;
+type Filter = "all" | Exclude<StockLevel, "ok">;
+const MAX = 1_000_000;
+const clamp = (n: number) => Math.max(0, Math.min(MAX, Math.round(n) || 0));
+
+const levelOf = (stock: number, threshold: number): StockLevel => (stock === 0 ? "out" : stock <= threshold ? "low" : "ok");
+
+function LevelBadge({ level }: { level: StockLevel }) {
+  return level === "out" ? (
+    <Badge className="rounded-full border-transparent bg-danger/10 text-danger">Out of stock</Badge>
+  ) : level === "low" ? (
+    <Badge className="rounded-full border-transparent bg-brand-soft text-brand">Low</Badge>
+  ) : (
+    <Badge variant="outline" className="rounded-full">In stock</Badge>
+  );
+}
 
 export function InventoryTable() {
   const params = useSearchParams();
-  const tracked = adminProducts.filter((p) => p.status !== "archived");
-  const [saved, setSaved] = useState<Record<string, number>>(() => Object.fromEntries(tracked.map((p) => [p.id, p.stock])));
-  const [stock, setStock] = useState(saved);
-  const [filter, setFilter] = useState<Filter>((params.get("filter") as Filter) ?? "all");
+  const initial = params.get("filter");
+  const [filter, setFilter] = useState<Filter>(initial === "low" || initial === "out" ? initial : "all");
+  const [sort, setSort] = useState<"name" | "stock">("name");
+  const [searchInput, setSearchInput] = useState("");
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  // Unsaved counts, by variant id. Kept across pages and filters until saved or reset.
+  const [edits, setEdits] = useState<Record<string, { row: InventoryRow; count: number }>>({});
+  const [saving, setSaving] = useState(false);
 
-  const rows = tracked.map((p) => ({ ...p, stock: stock[p.id] }));
-  const changed = tracked.filter((p) => stock[p.id] !== saved[p.id]);
-  const visible = rows.filter((p) => filter === "all" || level(p) === filter);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(searchInput.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const units = rows.reduce((s, p) => s + p.stock, 0);
-  const value = rows.reduce((s, p) => s + p.stock * p.price, 0);
-  const lowCount = rows.filter((p) => level(p) === "low").length;
-  const outCount = rows.filter((p) => level(p) === "out").length;
+  const query: InventoryQuery = {
+    level: filter === "all" ? undefined : filter,
+    q: q || undefined,
+    sort,
+    skip: page * PAGE_SIZE,
+    limit: PAGE_SIZE,
+  };
+  const inventory = useAdminQuery(JSON.stringify(query), () => adminInventory.list(query));
+  const summary = inventory.data?.summary;
 
-  const set = (id: string, n: number) => setStock((prev) => ({ ...prev, [id]: Math.max(0, Math.min(9999, Math.round(n) || 0)) }));
+  const countOf = (r: InventoryRow) => edits[r.variant_id]?.count ?? r.stock_qty;
+  const setCount = (r: InventoryRow, n: number) =>
+    setEdits((prev) => {
+      const count = clamp(n);
+      const next = { ...prev };
+      if (count === r.stock_qty) delete next[r.variant_id];
+      else next[r.variant_id] = { row: r, count };
+      return next;
+    });
 
-  const columns: ColumnDef<AdminProduct, unknown>[] = [
+  const changed = Object.values(edits);
+
+  const save = async () => {
+    setSaving(true);
+    const results = await Promise.allSettled(
+      changed.map(({ row, count }) => adminInventory.setStock(row.product_id, row.variant_id, count, "Inventory count")),
+    );
+    setSaving(false);
+    const failedIds = new Set<string>();
+    let firstError: unknown;
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        failedIds.add(changed[i].row.variant_id);
+        firstError ??= r.reason;
+      }
+    });
+    const ok = results.length - failedIds.size;
+    if (ok) toast.success(`Stock saved for ${ok} ${ok === 1 ? "variant" : "variants"}`);
+    if (failedIds.size) toast.error(`${failedIds.size} didn't save`, { description: errorMessage(firstError) });
+    // Keep only the edits that failed, so they can be retried.
+    setEdits((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => failedIds.has(id))));
+    inventory.refetch();
+  };
+
+  const columns: ColumnDef<InventoryRow, unknown>[] = [
     {
       id: "product",
-      accessorFn: (p) => p.name,
-      header: ({ column }) => <SortHeader label="Product" column={column} />,
-      cell: ({ row }) => (
-        <Link href={`/admin/products/${row.original.id}`} className="flex items-center gap-3 hover:opacity-80">
-          <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-surface-2">
-            <Image src={row.original.image} alt="" fill sizes="40px" className="object-cover" />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate font-medium text-ink">{row.original.name}</span>
-            <span className="block font-mono text-[12px] text-subtle">{row.original.id.toUpperCase()}</span>
-          </span>
-        </Link>
-      ),
-    },
-    {
-      id: "level",
-      header: "Status",
-      accessorFn: (p) => level(p),
+      header: "Product",
       cell: ({ row }) => {
-        const l = level(row.original);
-        return l === "out" ? (
-          <Badge className="rounded-full border-transparent bg-danger/10 text-danger">Out of stock</Badge>
-        ) : l === "low" ? (
-          <Badge className="rounded-full border-transparent bg-brand-soft text-brand">Low</Badge>
-        ) : (
-          <Badge variant="outline" className="rounded-full">In stock</Badge>
+        const r = row.original;
+        const option = [r.color_name, r.size].filter(Boolean).join(" / ");
+        return (
+          <Link href={`/admin/products/${r.product_id}`} className="flex items-center gap-3 hover:opacity-80">
+            <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-subtle">
+              {r.image_url ? (
+                <Image src={r.image_url} alt="" fill sizes="40px" className="object-cover" unoptimized={unoptimized(r.image_url)} />
+              ) : (
+                <ImageSquare size={18} />
+              )}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-medium text-ink">
+                {r.product_name}
+                {r.product_status === "draft" && <span className="ml-1.5 text-[12px] font-normal text-subtle">(draft)</span>}
+              </span>
+              <span className="flex items-center gap-1.5 text-[12px] text-subtle">
+                {r.color_hex && <span className="size-2.5 shrink-0 rounded-full border border-line" style={{ background: r.color_hex }} />}
+                {option && <span className="truncate">{option}</span>}
+                <span className="truncate font-mono">{r.sku}</span>
+              </span>
+            </span>
+          </Link>
         );
       },
     },
     {
-      accessorKey: "stock",
-      header: ({ column }) => <SortHeader label="On hand" column={column} />,
+      id: "level",
+      header: "Status",
       cell: ({ row }) => {
-        const p = row.original;
+        const r = row.original;
+        return (
+          <span className="flex flex-col items-start gap-1">
+            <LevelBadge level={levelOf(countOf(r), r.low_stock_threshold)} />
+            {!r.is_active && <span className="text-[11px] text-subtle">Not for sale</span>}
+          </span>
+        );
+      },
+    },
+    {
+      id: "stock",
+      header: "On hand",
+      cell: ({ row }) => {
+        const r = row.original;
+        const count = countOf(r);
+        const dirty = r.variant_id in edits;
         return (
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon-sm" aria-label={`Decrease ${p.name} stock`} onClick={() => set(p.id, p.stock - 1)} disabled={p.stock === 0}>
+            <Button variant="outline" size="icon-sm" aria-label={`Decrease ${r.sku} stock`} onClick={() => setCount(r, count - 1)} disabled={count === 0 || saving}>
               <Minus />
             </Button>
             <Input
-              aria-label={`${p.name} stock`}
+              aria-label={`${r.sku} stock`}
               inputMode="numeric"
-              value={p.stock}
-              onChange={(e) => set(p.id, Number(e.target.value.replace(/\D/g, "")))}
-              className="h-7 w-16 text-center tabular-nums"
+              value={count}
+              onChange={(e) => setCount(r, Number(e.target.value.replace(/\D/g, "")))}
+              disabled={saving}
+              className={`h-7 w-16 text-center tabular-nums ${dirty ? "border-brand ring-1 ring-brand/30" : ""}`}
             />
-            <Button variant="outline" size="icon-sm" aria-label={`Increase ${p.name} stock`} onClick={() => set(p.id, p.stock + 1)}>
+            <Button variant="outline" size="icon-sm" aria-label={`Increase ${r.sku} stock`} onClick={() => setCount(r, count + 1)} disabled={saving}>
               <Plus />
             </Button>
+            {dirty && <span className="ml-1 text-[12px] tabular-nums text-subtle">was {r.stock_qty}</span>}
           </div>
         );
       },
     },
     {
-      accessorKey: "lowStockThreshold",
+      id: "threshold",
       header: "Alert at",
-      cell: ({ row }) => <span className="tabular-nums text-subtle">{row.original.lowStockThreshold}</span>,
+      cell: ({ row }) => <span className="tabular-nums text-subtle">{row.original.low_stock_threshold}</span>,
     },
     {
-      accessorKey: "sold30d",
-      header: ({ column }) => <SortHeader label="Sold (30d)" column={column} />,
-      cell: ({ row }) => {
-        const p = row.original;
-        const perDay = p.sold30d / 30;
-        const daysLeft = perDay > 0 ? Math.floor(p.stock / perDay) : null;
-        return (
-          <span className="tabular-nums">
-            {p.sold30d}
-            {daysLeft !== null && p.stock > 0 && (
-              <span className={`ml-2 text-[12px] ${daysLeft < 7 ? "text-brand" : "text-subtle"}`}>~{daysLeft} days left</span>
-            )}
-          </span>
-        );
-      },
+      id: "price",
+      header: "Price",
+      cell: ({ row }) => <span className="tabular-nums">{formatMoney(Number(row.original.effective_price))}</span>,
     },
     {
       id: "value",
       header: "Value",
-      accessorFn: (p) => p.stock * p.price,
-      cell: ({ row }) => <span className="tabular-nums">{formatMoney(row.original.stock * row.original.price)}</span>,
+      cell: ({ row }) => (
+        <span className="tabular-nums">{formatMoney(countOf(row.original) * Number(row.original.effective_price))}</span>
+      ),
     },
     {
       id: "restock",
       header: "",
       cell: ({ row }) => (
-        <Button variant="ghost" size="sm" onClick={() => set(row.original.id, row.original.stock + 20)}>
+        <Button variant="ghost" size="sm" disabled={saving} onClick={() => setCount(row.original, countOf(row.original) + 20)}>
           +20
         </Button>
       ),
@@ -135,49 +211,96 @@ export function InventoryTable() {
 
   return (
     <>
-      <PageHeader title="Inventory" description="Stock on hand for every active and draft product." />
+      <PageHeader title="Inventory" description="Stock for every variant of active and draft products." />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Units on hand" value={units.toLocaleString("en-US")} hint="across all products" />
-        <StatCard label="Inventory value" value={formatMoney(value)} hint="at retail price" />
-        <StatCard label="Low stock" value={String(lowCount)} hint="at or under alert level" />
-        <StatCard label="Out of stock" value={String(outCount)} hint="can't be ordered" />
-      </div>
+      {summary ? (
+        <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <StatCard label="Units on hand" value={summary.units.toLocaleString("en-US")} hint={`across ${summary.variants} variants`} />
+          <StatCard label="Inventory value" value={formatMoney(Number(summary.value))} hint="at selling price" />
+          <StatCard label="Low stock" value={String(summary.low)} hint="at or under alert level" />
+          <StatCard label="Out of stock" value={String(summary.out)} hint="can't be ordered" />
+        </div>
+      ) : (
+        !inventory.error && (
+          <div className="mb-6">
+            <CardsSkeleton />
+          </div>
+        )
+      )}
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)} className="mb-4">
+      <Tabs
+        value={filter}
+        onValueChange={(v) => {
+          setFilter(v as Filter);
+          setPage(0);
+        }}
+        className="mb-4"
+      >
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="low">Low ({lowCount})</TabsTrigger>
-          <TabsTrigger value="out">Out ({outCount})</TabsTrigger>
+          <TabsTrigger value="low" className="gap-1.5">
+            Low {summary && <span className="text-[11px] tabular-nums text-subtle">{summary.low}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="out" className="gap-1.5">
+            Out {summary && <span className="text-[11px] tabular-nums text-subtle">{summary.out}</span>}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <DataTable
-        columns={columns}
-        data={visible}
-        getRowId={(p) => p.id}
-        pageSize={20}
-        searchPlaceholder="Search products"
-        globalFilterFn={(p, q) => p.name.toLowerCase().includes(q) || p.id.includes(q)}
-        emptyText="Nothing here. Every product is above its alert level."
-      />
+      {inventory.loading ? (
+        <TableSkeleton columns={6} />
+      ) : inventory.error && !inventory.data ? (
+        <ErrorState error={inventory.error} onRetry={inventory.refetch} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={inventory.data?.items ?? []}
+          getRowId={(r) => r.variant_id}
+          pageSize={PAGE_SIZE}
+          server={{ total: inventory.data?.total ?? 0, pageIndex: page, onPageChange: setPage }}
+          search={{ value: searchInput, onChange: setSearchInput }}
+          busy={inventory.refreshing || saving}
+          searchPlaceholder="Search product, SKU, color or size"
+          toolbar={
+            <Select
+              value={sort}
+              onValueChange={(v) => {
+                setSort(v as "name" | "stock");
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="h-9 w-44 bg-surface" aria-label="Sort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Sort by name</SelectItem>
+                <SelectItem value="stock">Lowest stock first</SelectItem>
+              </SelectContent>
+            </Select>
+          }
+          emptyText={
+            filter === "out"
+              ? "Nothing is out of stock."
+              : filter === "low"
+                ? "Nothing is low. Every variant is above its alert level."
+                : q
+                  ? "No variants match this search."
+                  : "No products to track yet."
+          }
+        />
+      )}
 
       {changed.length > 0 && (
         <div className="sticky bottom-0 z-20 -mx-4 -mb-6 mt-6 border-t border-line bg-bg/90 backdrop-blur-xl md:-mx-6 md:-mb-8">
           <div className="flex items-center justify-end gap-2 px-4 py-3 md:px-6">
             <p className="mr-auto text-[13px] text-ink">
-              {changed.length} {changed.length === 1 ? "product" : "products"} changed
+              {changed.length} {changed.length === 1 ? "variant" : "variants"} changed
             </p>
-            <Button variant="outline" onClick={() => setStock(saved)}>
+            <Button variant="outline" onClick={() => setEdits({})} disabled={saving}>
               <ArrowCounterClockwise /> Reset
             </Button>
-            <Button
-              onClick={() => {
-                setSaved(stock);
-                toast.success("Stock levels saved", { description: `${changed.length} products updated. Demo mode.` });
-              }}
-            >
-              Save changes
+            <Button onClick={save} disabled={saving}>
+              {saving && <Spinner />} Save stock
             </Button>
           </div>
         </div>

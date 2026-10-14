@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import exists, func, select
+from sqlalchemy import case, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +30,10 @@ from src.app.api.v1.schemas.product import (
     VariantCreate,
     VariantResponse,
     VariantUpdate,
+    InventoryResponse,
+    InventoryRow,
+    InventorySummary,
+    StockLevel,
 )
 from src.app.api.v1.services import media_service
 from src.app.api.v1.services.category_service import slugify
@@ -666,3 +670,99 @@ class ProductService:
         await self.db.commit()
         if public_id:
             await media_service.delete_image(public_id)
+
+    # ── Inventory (admin) ────────────────────────────────────────────────────
+
+    async def inventory(
+        self,
+        *,
+        level: StockLevel | None = None,
+        q: str | None = None,
+        sort: str = "name",
+        skip: int = 0,
+        limit: int = 50,
+    ) -> InventoryResponse:
+        """Every variant of every non-archived, non-deleted product, with its stock level."""
+        price = func.coalesce(ProductVariant.price, Product.price)
+        level_expr = case(
+            (ProductVariant.stock_qty == 0, StockLevel.OUT.value),
+            (ProductVariant.stock_qty <= Product.low_stock_threshold, StockLevel.LOW.value),
+            else_=StockLevel.OK.value,
+        )
+        image = (
+            select(ProductImage.url)
+            .where(ProductImage.product_id == Product.id)
+            .order_by(ProductImage.position)
+            .limit(1)
+            .correlate(Product)
+            .scalar_subquery()
+        )
+        scope = [Product.deleted_at.is_(None), Product.status != ProductStatus.ARCHIVED]
+
+        filters = list(scope)
+        if level:
+            filters.append(level_expr == level.value)
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            filters.append(
+                or_(
+                    Product.name.ilike(like),
+                    Product.brand.ilike(like),
+                    ProductVariant.sku.ilike(like),
+                    ProductVariant.color_name.ilike(like),
+                    ProductVariant.size.ilike(like),
+                )
+            )
+
+        base = select(ProductVariant).join(Product, ProductVariant.product_id == Product.id).where(*filters)
+        total = await self.db.scalar(select(func.count()).select_from(base.subquery())) or 0
+
+        order = (
+            [ProductVariant.stock_qty.asc(), func.lower(Product.name)]
+            if sort == "stock"
+            else [func.lower(Product.name), ProductVariant.position]
+        )
+        rows = await self.db.execute(
+            select(ProductVariant, Product, price.label("price"), level_expr.label("level"), image.label("image"))
+            .join(Product, ProductVariant.product_id == Product.id)
+            .where(*filters)
+            .order_by(*order)
+            .offset(skip)
+            .limit(limit)
+        )
+        items = [
+            InventoryRow(
+                variant_id=v.id,
+                product_id=p.id,
+                product_name=p.name,
+                product_slug=p.slug,
+                product_status=p.status,
+                image_url=img,
+                sku=v.sku,
+                color_name=v.color_name,
+                color_hex=v.color_hex,
+                size=v.size,
+                effective_price=eff,
+                stock_qty=v.stock_qty,
+                low_stock_threshold=p.low_stock_threshold,
+                level=StockLevel(lvl),
+                is_active=v.is_active,
+            )
+            for v, p, eff, lvl, img in rows.all()
+        ]
+
+        totals = (
+            await self.db.execute(
+                select(
+                    func.count(ProductVariant.id),
+                    func.coalesce(func.sum(ProductVariant.stock_qty), 0),
+                    func.coalesce(func.sum(ProductVariant.stock_qty * price), 0),
+                    func.count().filter(level_expr == StockLevel.LOW.value),
+                    func.count().filter(level_expr == StockLevel.OUT.value),
+                )
+                .join(Product, ProductVariant.product_id == Product.id)
+                .where(*scope)
+            )
+        ).one()
+        summary = InventorySummary(variants=totals[0], units=totals[1], value=totals[2], low=totals[3], out=totals[4])
+        return InventoryResponse(items=items, total=total, skip=skip, limit=limit, summary=summary)
