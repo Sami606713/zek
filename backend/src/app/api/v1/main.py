@@ -21,6 +21,7 @@ from fastmcp import FastMCP
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 
 from src.app.api.v1.routes import api_router
+from src.app.api.v1.utils.mcp_auth import ZekTokenVerifier, forward_access_token, with_auth_middleware
 from src.app.config import settings
 from src.app.database import engine
 
@@ -124,29 +125,33 @@ async def health_check() -> dict[str, str]:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MCP: expose the API as tools for the agent, at /mcp.
-# Account and admin endpoints are excluded so the agent can never call them.
+# Every /mcp request must carry `Authorization: Bearer <access token>`, checked
+# with the same rules as the REST API (ZekTokenVerifier); otherwise it gets 401.
+# Each tool call then reaches the API with that same token (forward_access_token),
+# so the API's own checks decide what the caller may do: a shopper only reaches
+# their own cart, orders, addresses and wishlist, and admin tools only work for admins.
 # ─────────────────────────────────────────────────────────────────────────────
+
+mcp_auth = ZekTokenVerifier()
 
 mcp = FastMCP.from_fastapi(
     app=app,
     name="ZEK MCP",
+    auth=mcp_auth,
+    httpx_client_kwargs={"event_hooks": {"request": [forward_access_token]}},
     route_maps=[
-        RouteMap(tags={"Users"}, mcp_type=MCPType.EXCLUDE),
         RouteMap(tags={"System"}, mcp_type=MCPType.EXCLUDE),
-        # Cart and order tools for the agent are decided in the agent step.
-        RouteMap(tags={"Cart"}, mcp_type=MCPType.EXCLUDE),
-        RouteMap(tags={"Orders"}, mcp_type=MCPType.EXCLUDE),
-        RouteMap(tags={"Admin: Orders"}, mcp_type=MCPType.EXCLUDE),
-        RouteMap(tags={"Addresses"}, mcp_type=MCPType.EXCLUDE),  # personal data
-        RouteMap(tags={"Wishlist"}, mcp_type=MCPType.EXCLUDE),   # personal data
-        # The agent may check a promo code for a shopper, but never manage codes.
-        RouteMap(methods=["POST"], pattern=r"^/api/v1/discounts/validate$", mcp_type=MCPType.TOOL),
-        RouteMap(tags={"Discounts"}, mcp_type=MCPType.EXCLUDE),
-        # The agent may read the catalogue but never change it, and never sees admin-only lookups.
-        RouteMap(methods=["POST", "PUT", "PATCH", "DELETE"], tags={"Categories"}, mcp_type=MCPType.EXCLUDE),
-        RouteMap(methods=["POST", "PUT", "PATCH", "DELETE"], tags={"Products"}, mcp_type=MCPType.EXCLUDE),
-        RouteMap(methods=["POST", "PUT", "PATCH", "DELETE"], tags={"Collections"}, mcp_type=MCPType.EXCLUDE),
-        RouteMap(pattern=r"^/api/v1/(categories|products|collections)/id/", mcp_type=MCPType.EXCLUDE),
+        # Called by WhatsApp, never by a user: a tool here could fake incoming messages.
+        RouteMap(tags={"WhatsApp Webhook"}, mcp_type=MCPType.EXCLUDE),
+        # Sign-in flows work without a token and hand out new tokens; the caller is already signed in.
+        RouteMap(
+            methods=["POST"],
+            pattern=r"^/api/v1/users/(register|login|refresh-token|forgot-password|reset-password)$",
+            mcp_type=MCPType.EXCLUDE,
+        ),
+        # File uploads (multipart) can't be sent through a tool; the image-by-URL route stays.
+        RouteMap(methods=["POST"], pattern=r"^/api/v1/products/[^/]+/images$", mcp_type=MCPType.EXCLUDE),
+        RouteMap(methods=["POST"], pattern=r"^/api/v1/collections/[^/]+/image$", mcp_type=MCPType.EXCLUDE),
         RouteMap(mcp_type=MCPType.TOOL),
     ],
 )
@@ -154,6 +159,12 @@ mcp_app = mcp.http_app(path="/mcp")
 
 # Add only the exact /mcp route (not a catch-all mount), so hosts that embed this app,
 # like `langgraph dev` via langgraph.json "http.app", keep their own routes working.
+# Copying routes skips mcp_app's own middleware, so the auth middleware that reads
+# the Bearer token is wrapped around the /mcp route here.
+_mcp_auth_middleware = mcp_auth.get_middleware()
+for _route in mcp_app.routes:
+    if getattr(_route, "path", None) == "/mcp":
+        _route.app = with_auth_middleware(_route.app, _mcp_auth_middleware)
 app.router.routes.extend(mcp_app.routes)
 
 # Kept for anything that still imports the old name.

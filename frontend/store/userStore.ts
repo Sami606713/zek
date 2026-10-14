@@ -8,6 +8,9 @@ export type SessionUser = {
   email: string;
   phone?: string;
   createdAt?: string;
+  role?: string;
+  /** role "admin" or superuser. Only for showing UI; the backend checks every admin call itself. */
+  isAdmin?: boolean;
   prefs?: { orderEmails: boolean; whatsapp: boolean; newsletter: boolean };
   token?: string;
   refreshToken?: string;

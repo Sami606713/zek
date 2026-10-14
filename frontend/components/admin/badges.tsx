@@ -13,6 +13,7 @@ import {
   type PaymentStatus,
   type ProductStatus,
 } from "@/lib/admin/mock";
+import type { OrderStatus as ApiOrderStatus, PaymentStatus as ApiPaymentStatus } from "@/lib/api/admin";
 
 const tones = {
   brand: "border-transparent bg-brand-soft text-brand",
@@ -26,23 +27,42 @@ function Tone({ tone, children }: { tone: keyof typeof tones; children: React.Re
   return <Badge className={`rounded-full font-medium ${tones[tone]}`}>{children}</Badge>;
 }
 
-const fulfilmentLabel: Record<FulfilmentStatus, string> = {
+// Mock statuses are a subset of the API's, so both work here.
+type OrderStatusValue = FulfilmentStatus | ApiOrderStatus;
+type PaymentStatusValue = PaymentStatus | ApiPaymentStatus;
+
+export const orderStatusLabel: Record<OrderStatusValue, string> = {
+  pending: "Pending",
   confirmed: "Confirmed",
   packed: "Packed",
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  returned: "Returned",
 };
 
-export function FulfilmentBadge({ status }: { status: FulfilmentStatus }) {
+export function FulfilmentBadge({ status }: { status: OrderStatusValue }) {
   const tone =
-    status === "delivered" ? "solid" : status === "cancelled" ? "neutral" : status === "shipped" ? "outline" : "brand";
-  return <Tone tone={tone}>{fulfilmentLabel[status]}</Tone>;
+    status === "delivered"
+      ? "solid"
+      : status === "cancelled" || status === "returned"
+        ? "neutral"
+        : status === "shipped"
+          ? "outline"
+          : "brand";
+  return <Tone tone={tone}>{orderStatusLabel[status]}</Tone>;
 }
 
-export function PaymentBadge({ status }: { status: PaymentStatus }) {
-  const map = { paid: ["Paid", "outline"], pending: ["Pending", "brand"], refunded: ["Refunded", "neutral"] } as const;
-  const [label, tone] = map[status];
+const paymentMap: Record<PaymentStatusValue, readonly [string, keyof typeof tones]> = {
+  paid: ["Paid", "outline"],
+  pending: ["Pending", "brand"],
+  failed: ["Failed", "danger"],
+  partially_refunded: ["Part refunded", "neutral"],
+  refunded: ["Refunded", "neutral"],
+};
+
+export function PaymentBadge({ status }: { status: PaymentStatusValue }) {
+  const [label, tone] = paymentMap[status];
   return <Tone tone={tone}>{label}</Tone>;
 }
 

@@ -38,7 +38,7 @@ async function request<T>(
   opts: { auth?: boolean; guest?: boolean } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
-    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(typeof options.body === "string" ? { "Content-Type": "application/json" } : {}),
     ...((options.headers as Record<string, string>) ?? {}),
   };
 
@@ -80,5 +80,12 @@ export const api = {
   delete: <T>(path: string, opts?: { auth?: boolean; guest?: boolean }) =>
     request<T>(path, { method: "DELETE" }, opts),
 };
+
+/** Multipart upload (files). The browser sets the multipart Content-Type itself. */
+export function upload<T>(path: string, fields: Record<string, string | Blob>): Promise<T> {
+  const body = new FormData();
+  for (const [key, value] of Object.entries(fields)) body.append(key, value);
+  return request<T>(path, { method: "POST", body }, { auth: true });
+}
 
 export { API_URL };

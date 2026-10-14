@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { AdminGuard, CheckingAccess } from "@/components/admin/AdminGuard";
 import { AdminShell } from "@/components/admin/AdminShell";
 
 export const metadata: Metadata = {
@@ -6,7 +8,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Static admin: no auth guard yet. proxy.ts role check arrives with real JWT (Plan 6, Phase 7).
+// Admins only: AdminGuard checks the role with the backend before anything renders.
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
-  return <AdminShell>{children}</AdminShell>;
+  return (
+    // The guard reads the URL (for ?next= after login), which needs a Suspense boundary.
+    <Suspense fallback={<CheckingAccess />}>
+      <AdminGuard>
+        <AdminShell>{children}</AdminShell>
+      </AdminGuard>
+    </Suspense>
+  );
 }

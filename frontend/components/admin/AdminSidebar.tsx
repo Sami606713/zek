@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ChartLineUp,
   ChatsCircle,
@@ -41,13 +41,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { adminOrders, adminProducts, conversations } from "@/lib/admin/mock";
+import { conversations } from "@/lib/admin/mock";
+import { useLowStock, useOrdersToPack } from "@/lib/admin/live";
+import { useUserStore } from "@/store/userStore";
 
-const toShip = adminOrders.filter((o) => o.status === "confirmed" || o.status === "packed").length;
-const lowStock = adminProducts.filter((p) => p.status === "active" && p.stock <= p.lowStockThreshold).length;
 const flagged = conversations.filter((c) => c.flagged).length;
 
-const groups = [
+const buildGroups = (toPack?: number, lowStock?: number) => [
   {
     label: "Overview",
     items: [{ href: "/admin", label: "Dashboard", icon: SquaresFour }],
@@ -55,7 +55,7 @@ const groups = [
   {
     label: "Sales",
     items: [
-      { href: "/admin/orders", label: "Orders", icon: Receipt, badge: toShip },
+      { href: "/admin/orders", label: "Orders", icon: Receipt, badge: toPack },
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/discounts", label: "Discounts", icon: Tag },
     ],
@@ -81,8 +81,24 @@ const groups = [
   },
 ];
 
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || "A";
+
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const user = useUserStore((s) => s.user);
+  const groups = buildGroups(useOrdersToPack(), useLowStock());
+  const name = user?.fullName || user?.username || "Admin";
+  const signOut = () => {
+    useUserStore.getState().signOut();
+    router.replace("/login?next=/admin");
+  };
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : href === "/admin/agent" ? pathname === "/admin/agent" : pathname.startsWith(href);
 
@@ -144,17 +160,17 @@ export function AdminSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg">
                   <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg bg-brand-soft text-[12px] font-semibold text-brand">SU</AvatarFallback>
+                    <AvatarFallback className="rounded-lg bg-brand-soft text-[12px] font-semibold text-brand">{initials(name)}</AvatarFallback>
                   </Avatar>
                   <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                    <span className="truncate text-[13px] font-medium text-ink">Sami Ullah</span>
-                    <span className="truncate text-[12px] text-subtle">Owner</span>
+                    <span className="truncate text-[13px] font-medium text-ink">{name}</span>
+                    <span className="truncate text-[12px] text-subtle">Admin</span>
                   </span>
                   <CaretUpDown className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" className="w-56">
-                <DropdownMenuLabel>sami@zek.store</DropdownMenuLabel>
+                <DropdownMenuLabel className="truncate">{user?.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/admin/settings">
@@ -167,10 +183,8 @@ export function AdminSidebar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/">
-                    <SignOut /> Log out
-                  </Link>
+                <DropdownMenuItem onSelect={signOut}>
+                  <SignOut /> Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

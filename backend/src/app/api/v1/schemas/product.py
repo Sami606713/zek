@@ -228,3 +228,47 @@ class ProductListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Inventory (admin): one row per variant
+# ─────────────────────────────────────────────────────────────────────────────
+
+class StockLevel(str, Enum):
+    OUT = "out"   # 0 in stock
+    LOW = "low"   # 1 to the product's low_stock_threshold
+    OK = "ok"
+
+
+class InventoryRow(BaseModel):
+    variant_id: uuid.UUID
+    product_id: uuid.UUID
+    product_name: str
+    product_slug: str
+    product_status: ProductStatus
+    image_url: str | None
+    sku: str
+    color_name: str | None
+    color_hex: str | None
+    size: str | None
+    effective_price: Decimal
+    stock_qty: int
+    low_stock_threshold: int
+    level: StockLevel
+    is_active: bool
+
+
+class InventorySummary(BaseModel):
+    variants: int
+    units: int
+    value: Decimal = Field(..., description="Units on hand at their selling price")
+    low: int
+    out: int
+
+
+class InventoryResponse(BaseModel):
+    items: list[InventoryRow]
+    total: int
+    skip: int
+    limit: int
+    summary: InventorySummary = Field(..., description="For all non-archived products, ignoring filters")
