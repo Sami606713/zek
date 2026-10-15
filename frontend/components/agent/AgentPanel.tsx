@@ -152,11 +152,13 @@ export function AgentPanel() {
   const closePanel = useAgentStore((s) => s.closePanel);
   const takePrompt = useAgentStore((s) => s.takePrompt);
   const pendingPrompt = useAgentStore((s) => s.pendingPrompt);
-  const hydrate = useAgentStore((s) => s.hydrate);
+  const setOwner = useAgentStore((s) => s.setOwner);
   const lastPrompt = useAgentStore((s) => s.lastPrompt);
   const setLastPrompt = useAgentStore((s) => s.setLastPrompt);
 
-  useEffect(() => hydrate(), [hydrate]);
+  // Whose chat to show: the signed-in user's own, or the guest chat. Waits for
+  // the saved session to load so a signed-in user never flashes the guest chat.
+  const owner = useUserStore((s) => (s.hydrated ? (s.user?.id ?? "guest") : null));
 
   // The stream stays mounted while the panel is closed, so a reply keeps
   // arriving and the conversation survives page changes.
@@ -182,6 +184,15 @@ export function AgentPanel() {
       { config: { configurable: { token } } },
     );
   };
+
+  // Switch chats when the account changes (login, logout, another user signs in).
+  // A reply still streaming for the previous account is stopped first.
+  useEffect(() => {
+    if (!owner) return;
+    if (useAgentStore.getState().owner !== owner && stream.isLoading) void stream.stop();
+    setOwner(owner);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner]);
 
   // Send a prompt handed over by the hero ask-bar or another "Ask ZEK" trigger.
   useEffect(() => {

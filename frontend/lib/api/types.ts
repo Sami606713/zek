@@ -78,8 +78,8 @@ export interface ApiProductDetail {
   details: string[];
   price: string;
   compare_at_price: string | null;
-  category_slug: string;
-  category_name: string;
+  /** The API sends `category: { slug, name }` (null when the product has none). */
+  category: { slug: string; name: string } | null;
   images: ApiProductImage[];
   variants: ApiProductVariant[];
   rating_avg: number;

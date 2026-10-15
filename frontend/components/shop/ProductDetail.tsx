@@ -270,14 +270,16 @@ export function ProductDetail({ product }: { product: Product }) {
                 Orders ship within 1 to 2 business days and usually arrive in 2 to 4 days.
                 Shipping is free on orders over $50. Not right? Return it within 30 days for a full refund.
               </Accordion>
-              <Accordion title="More in this category">
-                <Link
-                  href={`/products?category=${product.category}`}
-                  className="font-medium text-ink underline-offset-4 hover:underline"
-                >
-                  Shop all {product.category}
-                </Link>
-              </Accordion>
+              {product.category && (
+                <Accordion title="More in this category">
+                  <Link
+                    href={`/products?category=${product.category}`}
+                    className="font-medium text-ink underline-offset-4 hover:underline"
+                  >
+                    Shop all {product.category}
+                  </Link>
+                </Accordion>
+              )}
             </div>
           </div>
         </motion.div>

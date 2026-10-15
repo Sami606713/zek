@@ -9,6 +9,9 @@
     "http": {
         "app": "src.app.api.v1.main:combined_app"
     },
+    "store": {
+        "path": "./src/app/agent/store/store.py:generate_store"
+    },
     "env": ".env",
     "image_distro": "wolfi"
 }

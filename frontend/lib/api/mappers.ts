@@ -59,7 +59,7 @@ export function mapProductDetail(p: ApiProductDetail): Product {
     id: p.slug,
     name: p.name,
     brand: p.brand,
-    category: p.category_slug as Product["category"],
+    category: p.category?.slug as Product["category"],
     price: parseFloat(p.price),
     compareAt: p.compare_at_price ? parseFloat(p.compare_at_price) : undefined,
     image: p.images[0]?.url ?? "",

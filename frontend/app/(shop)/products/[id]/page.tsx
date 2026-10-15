@@ -53,12 +53,14 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
                 Shop
               </Link>
             </li>
-            <li className="flex items-center gap-1.5">
-              <CaretRight size={12} aria-hidden />
-              <Link href={`/products?category=${categorySlug}`} className="hover:text-ink">
-                {categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1)}
-              </Link>
-            </li>
+            {categorySlug && (
+              <li className="flex items-center gap-1.5">
+                <CaretRight size={12} aria-hidden />
+                <Link href={`/products?category=${categorySlug}`} className="hover:text-ink">
+                  {categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1)}
+                </Link>
+              </li>
+            )}
             <li aria-current="page" className="flex min-w-0 items-center gap-1.5 text-ink">
               <CaretRight size={12} aria-hidden className="shrink-0 text-subtle" />
               <span className="truncate">{product.name}</span>
