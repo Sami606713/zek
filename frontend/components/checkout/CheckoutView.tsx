@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
@@ -33,6 +33,7 @@ import {
   type PaymentMethod,
 } from "@/lib/checkoutValidation";
 import { useCartStore } from "@/store/cartStore";
+import { useOrderStore } from "@/store/orderStore";
 import { useAddressStore, type Address } from "@/store/addressStore";
 import { useUserStore } from "@/store/userStore";
 import { placeOrder } from "@/lib/api/orders";
@@ -133,6 +134,37 @@ export function CheckoutView() {
     setErrors({});
   };
 
+  // Start from the account's default address once it has loaded, unless the shopper
+  // has already started typing one.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    const prefill = (state: ReturnType<typeof useAddressStore.getState>) => {
+      if (prefilled.current || !state.addresses.length) return;
+      prefilled.current = true;
+      const preferred = state.addresses.find((a) => a.id === state.defaultId) ?? state.addresses[0];
+      setValues((prev) => {
+        if (prev.line1.trim()) return prev; // the shopper already typed an address
+        const [firstName, ...rest] = preferred.name.split(" ");
+        return {
+          ...prev,
+          email: prev.email || user?.email || "",
+          phone: prev.phone || preferred.phone || user?.phone || "",
+          firstName,
+          lastName: rest.join(" "),
+          line1: preferred.line1,
+          line2: preferred.line2 ?? "",
+          city: preferred.city,
+          region: preferred.region,
+          postal: preferred.postal,
+          country: preferred.country,
+        };
+      });
+    };
+    // Addresses may already be loaded, or arrive a moment later from the account.
+    void Promise.resolve().then(() => prefill(useAddressStore.getState()));
+    return useAddressStore.subscribe(prefill);
+  }, [user?.email, user?.phone]);
+
   const lines = resolveLines(rawLines);
   const totals = computeTotals(lines, promo, delivery);
   const standardTotals = computeTotals(lines, promo, "standard");
@@ -177,23 +209,25 @@ export function CheckoutView() {
 
     setStatus("processing");
     try {
+      // Items, prices and any discount come from the server cart (kept in sync with the bag).
       const order = await placeOrder({
         email: values.email.trim(),
+        phone: values.phone.trim() || undefined,
         shipping_address: {
-          name: `${values.firstName.trim()} ${values.lastName.trim()}`,
+          full_name: `${values.firstName.trim()} ${values.lastName.trim()}`,
+          phone: values.phone.trim() || undefined,
           line1: values.line1.trim(),
           line2: values.line2.trim() || undefined,
           city: values.city.trim(),
           region: values.region.trim(),
-          postal: values.postal.trim(),
+          postal_code: values.postal.trim(),
           country: values.country,
-          phone: values.phone.trim() || undefined,
         },
         delivery_method: delivery,
         payment_method: method,
         card_last4: method === "card" ? values.cardNumber.replace(/\D/g, "").slice(-4) : undefined,
-        discount_code: promo ?? undefined,
       });
+      useOrderStore.getState().addOrder(order);
 
       setStatus("done");
       clearCart();

@@ -104,25 +104,24 @@ export function OrderConfirmation() {
   const orderId = params.get("order");
   const hydrated = useOrderStore((s) => s.hydrated);
   const order = useOrderStore((s) => s.orders.find((o) => o.id === orderId));
-  const setOrders = useOrderStore((s) => s.setOrders);
-  const [fetching, setFetching] = useState(false);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const missing = hydrated && !order && Boolean(orderId);
 
+  // Checkout saves the new order here; this covers a reload or a link opened elsewhere.
   useEffect(() => {
-    if (!order && orderId && !fetching && hydrated) {
-      setFetching(true);
-      fetchOrder(orderId)
-        .then((fetched) => {
-          const exists = useOrderStore.getState().orders.find((o) => o.id === orderId);
-          if (!exists) {
-            setOrders([fetched, ...useOrderStore.getState().orders]);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setFetching(false));
-    }
-  }, [order, orderId, fetching, hydrated, setOrders]);
+    if (!missing || !orderId) return;
+    let alive = true;
+    fetchOrder(orderId)
+      .then((fetched) => alive && useOrderStore.getState().addOrder(fetched))
+      .catch(() => {})
+      .finally(() => alive && setLoadedId(orderId));
+    return () => {
+      alive = false;
+    };
+  }, [missing, orderId]);
+  const fetching = missing && loadedId !== orderId;
 
-  if (!hydrated) return <ConfirmationSkeleton />;
+  if (!hydrated || fetching) return <ConfirmationSkeleton />;
 
   if (!order) {
     return (

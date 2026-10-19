@@ -1,6 +1,6 @@
 import type { Product, Category, Collection } from "@/lib/catalog";
 import type { SessionUser } from "@/store/userStore";
-import type { Order, OrderLine } from "@/store/orderStore";
+import type { Order } from "@/store/orderStore";
 import type { Address } from "@/store/addressStore";
 import type { CartLine } from "@/store/cartStore";
 import type { Delivery } from "@/lib/pricing";
@@ -54,7 +54,11 @@ export function mapProductListItem(p: ApiProductListItem): Product {
 
 export function mapProductDetail(p: ApiProductDetail): Product {
   const variants = p.variants ?? [];
-  const colors = [...new Set(variants.map((v) => v.color_name).filter(Boolean))] as string[];
+  // One swatch per color name, in variant order, using the variant's real color.
+  const colors = new Map<string, string>();
+  for (const v of variants) {
+    if (v.color_name && !colors.has(v.color_name)) colors.set(v.color_name, v.color_hex ?? "#999");
+  }
   return {
     id: p.slug,
     name: p.name,
@@ -70,7 +74,7 @@ export function mapProductDetail(p: ApiProductDetail): Product {
     addedOn: p.created_at.slice(0, 10),
     description: p.description,
     details: p.details ?? [],
-    colors: colors.map((name) => ({ name, hex: "#999" })),
+    colors: [...colors].map(([name, hex]) => ({ name, hex })),
   };
 }
 
@@ -127,32 +131,31 @@ export function mapCart(cart: ApiCart): { lines: CartLine[]; promo: string | nul
 }
 
 export function mapOrder(o: ApiOrder): Order {
-  const lines: OrderLine[] = o.items.map((item) => ({
-    id: item.id,
-    name: item.product_name,
-    brand: "",
-    image: item.image_url ?? "",
-    color: item.color_name ?? undefined,
-    quantity: item.quantity,
-    price: parseFloat(item.unit_price),
-  }));
-
+  const a = o.shipping_address;
   return {
     id: o.order_number,
     createdAt: o.created_at,
     email: o.email,
     address: {
-      name: o.shipping_address.name,
-      line1: o.shipping_address.line1,
-      line2: o.shipping_address.line2,
-      city: o.shipping_address.city,
-      region: o.shipping_address.region,
-      postal: o.shipping_address.postal,
-      country: o.shipping_address.country,
+      name: a.full_name,
+      line1: a.line1,
+      line2: a.line2 ?? undefined,
+      city: a.city,
+      region: a.region,
+      postal: a.postal_code,
+      country: a.country,
     },
     delivery: (o.delivery_method as Delivery) ?? "standard",
-    payment: { method: "card", last4: "4242" },
-    lines,
+    payment: o.payment_method === "card" ? { method: "card", last4: o.card_last4 ?? "····" } : { method: "cod" },
+    lines: o.items.map((item) => ({
+      id: item.product_slug ?? item.product_id ?? String(item.id),
+      name: item.product_name,
+      brand: item.brand ?? "",
+      image: item.image_url ?? "",
+      color: item.color_name ?? item.size ?? undefined,
+      quantity: item.quantity,
+      price: parseFloat(item.unit_price),
+    })),
     totals: {
       subtotal: parseFloat(o.subtotal),
       discount: parseFloat(o.discount_total),
@@ -160,14 +163,25 @@ export function mapOrder(o: ApiOrder): Order {
       tax: parseFloat(o.tax_total),
       total: parseFloat(o.total),
     },
-    promo: null,
+    promo: o.discount_code,
+    cancelledAt: o.cancelled_at ?? undefined,
+    status: o.status,
+    canCancel: o.can_cancel,
+    packedAt: o.packed_at ?? undefined,
+    shippedAt: o.shipped_at ?? undefined,
+    deliveredAt: o.delivered_at ?? undefined,
+    eta:
+      o.estimated_delivery_from && o.estimated_delivery_to
+        ? { from: o.estimated_delivery_from, to: o.estimated_delivery_to }
+        : undefined,
+    tracking: o.tracking_number ? { carrier: o.carrier, number: o.tracking_number } : undefined,
   };
 }
 
 export function mapAddress(a: ApiAddress): Address {
   return {
     id: a.id,
-    label: a.label,
+    label: a.label ?? "",
     name: a.full_name,
     line1: a.line1,
     line2: a.line2 ?? undefined,
@@ -175,7 +189,7 @@ export function mapAddress(a: ApiAddress): Address {
     region: a.region,
     postal: a.postal_code,
     country: a.country,
-    phone: a.phone_number ?? undefined,
+    phone: a.phone ?? undefined,
   };
 }
 

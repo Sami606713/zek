@@ -7,6 +7,7 @@ import { LockKey } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { fetchProfile } from "@/lib/api/auth";
+import { getValidToken } from "@/lib/api/session";
 import { useUserStore } from "@/store/userStore";
 
 type Check = { token: string; status: "admin" | "denied" | "expired" };
@@ -32,7 +33,10 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated || !token) return;
     let alive = true;
-    fetchProfile(token).then(
+    // Refreshes the login first if it's about to expire (the refreshed token re-runs this check).
+    getValidToken()
+      .then((fresh) => (fresh ? fetchProfile(fresh) : Promise.reject(new Error("expired"))))
+      .then(
       (profile) => {
         if (!alive) return;
         useUserStore.getState().updateUser({ role: profile.role, isAdmin: profile.isAdmin });

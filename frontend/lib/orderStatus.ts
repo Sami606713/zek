@@ -1,8 +1,9 @@
 import { addBusinessDays, estimateDelivery } from "./orderDates";
 import type { Order } from "@/store/orderStore";
 
-// Simulated fulfilment until the backend reports real tracking events.
-export type OrderStatus = "confirmed" | "packed" | "shipped" | "delivered" | "cancelled";
+// What the customer sees. The server's "pending" (payment not confirmed yet) shows as
+// "Confirmed" until it moves on; "returned" ends the order like "cancelled".
+export type OrderStatus = "confirmed" | "packed" | "shipped" | "delivered" | "cancelled" | "returned";
 
 export const statusLabels: Record<OrderStatus, string> = {
   confirmed: "Confirmed",
@@ -10,21 +11,33 @@ export const statusLabels: Record<OrderStatus, string> = {
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  returned: "Returned",
 };
 
+const STEPS = ["confirmed", "packed", "shipped", "delivered"] as const;
+type Step = (typeof STEPS)[number];
+
+/**
+ * When each step happened (or is expected). Uses the server's real times; orders saved
+ * before checkout was connected have none, so they keep the old estimate.
+ */
 export function orderMilestones(order: Order) {
   const placed = new Date(order.createdAt);
-  const eta = estimateDelivery(order.createdAt, order.delivery);
+  const eta = order.eta
+    ? { from: new Date(order.eta.from), to: new Date(order.eta.to) }
+    : estimateDelivery(order.createdAt, order.delivery);
   return {
     placed,
-    packed: new Date(placed.getTime() + 6 * 60 * 60 * 1000),
-    shipped: addBusinessDays(placed, 1),
-    delivered: eta.from,
+    packed: order.packedAt ? new Date(order.packedAt) : new Date(placed.getTime() + 6 * 60 * 60 * 1000),
+    shipped: order.shippedAt ? new Date(order.shippedAt) : addBusinessDays(placed, 1),
+    delivered: order.deliveredAt ? new Date(order.deliveredAt) : eta.from,
     eta,
   };
 }
 
 export function orderStatus(order: Order, now = new Date()): OrderStatus {
+  if (order.status) return order.status === "pending" ? "confirmed" : order.status;
+  // Legacy local order: estimate from the time since it was placed.
   if (order.cancelledAt) return "cancelled";
   const m = orderMilestones(order);
   if (now >= m.delivered) return "delivered";
@@ -33,9 +46,15 @@ export function orderStatus(order: Order, now = new Date()): OrderStatus {
   return "confirmed";
 }
 
-// Orders can be cancelled until they are packed.
+/** Whether the order has reached this step of the confirmed → delivered path. */
+export function stepReached(status: OrderStatus, step: Step) {
+  const at = STEPS.indexOf(status as Step);
+  return at >= 0 && at >= STEPS.indexOf(step);
+}
+
+// The server decides (until the order is packed); legacy orders use the estimate.
 export const canCancel = (order: Order, now = new Date()) =>
-  orderStatus(order, now) === "confirmed";
+  order.canCancel ?? orderStatus(order, now) === "confirmed";
 
 export const isInProgress = (status: OrderStatus) =>
   status === "confirmed" || status === "packed" || status === "shipped";

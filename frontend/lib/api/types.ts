@@ -56,6 +56,7 @@ export interface ApiProductVariant {
   id: string;
   sku: string;
   color_name: string | null;
+  color_hex: string | null;
   size: string | null;
   price: string;
   stock_qty: number;
@@ -144,23 +145,25 @@ export interface ApiCart {
 
 export interface ApiAddress {
   id: string;
-  label: string;
+  label: string | null;
   full_name: string;
+  phone: string | null;
   line1: string;
   line2: string | null;
   city: string;
   region: string;
   postal_code: string;
   country: string;
-  phone_number: string | null;
   is_default: boolean;
 }
 
 export interface ApiOrderItem {
-  id: string;
-  product_id: string;
+  id: number;
+  product_id: string | null;
+  product_slug: string | null;
   product_name: string;
-  product_slug: string;
+  brand: string | null;
+  sku: string | null;
   image_url: string | null;
   variant_id: string | null;
   color_name: string | null;
@@ -170,35 +173,59 @@ export interface ApiOrderItem {
   line_total: string;
 }
 
+export type ApiOrderStatus = "pending" | "confirmed" | "packed" | "shipped" | "delivered" | "cancelled" | "returned";
+
+/** GET /orders/{number} and POST /checkout (the full order). */
 export interface ApiOrder {
   id: string;
   order_number: string;
-  status: string;
+  status: ApiOrderStatus;
   payment_status: string;
-  payment_method: string;
+  payment_method: "card" | "cod";
+  delivery_method: string;
   email: string;
+  phone: string | null;
   shipping_address: {
-    name: string;
+    full_name: string;
+    phone: string | null;
     line1: string;
-    line2?: string;
+    line2: string | null;
     city: string;
     region: string;
-    postal: string;
+    postal_code: string;
     country: string;
   };
-  delivery_method: string;
   items: ApiOrderItem[];
   subtotal: string;
   discount_total: string;
+  discount_code: string | null;
   shipping_total: string;
   tax_total: string;
   total: string;
-  created_at: string;
-  updated_at: string;
+  card_last4: string | null;
+  carrier: string | null;
+  tracking_number: string | null;
+  estimated_delivery_from: string | null;
+  estimated_delivery_to: string | null;
+  paid_at: string | null;
   packed_at: string | null;
   shipped_at: string | null;
   delivered_at: string | null;
+  cancelled_at: string | null;
+  can_cancel: boolean;
+  created_at: string;
+  updated_at: string;
   status_history: { from_status: string | null; to_status: string; note: string | null; created_at: string }[];
+}
+
+/** One row of GET /orders (no items; fetch the order for those). */
+export interface ApiOrderSummary {
+  id: string;
+  order_number: string;
+  status: ApiOrderStatus;
+  total: string;
+  item_count: number;
+  created_at: string;
 }
 
 export interface ApiWishlistItem {

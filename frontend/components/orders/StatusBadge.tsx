@@ -1,4 +1,5 @@
 import {
+  ArrowUUpLeft,
   CheckCircle,
   MapPin,
   Package,
@@ -13,12 +14,13 @@ const icons = {
   shipped: Truck,
   delivered: MapPin,
   cancelled: XCircle,
+  returned: ArrowUUpLeft,
 } as const;
 
 export function StatusBadge({ status }: { status: OrderStatus }) {
   const Icon = icons[status];
   const tone =
-    status === "cancelled"
+    status === "cancelled" || status === "returned"
       ? "bg-surface-2 text-subtle"
       : status === "delivered"
         ? "bg-ink text-bg"

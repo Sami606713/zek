@@ -103,24 +103,24 @@ export function WishlistView() {
 
   const [sort, setSort] = useState<Sort>("recent");
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [catalogue, setCatalogue] = useState<Product[]>([]);
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
+  // Load product details for the saved slugs; the list itself follows `ids`, newest first.
+  const idsKey = ids.join(",");
   useEffect(() => {
-    if (ids.length > 0) {
-      fetchProducts({ limit: 100 })
-        .then((items) => {
-          const allProducts = items.map(mapProductListItem);
-          const wishlistProducts = allProducts.filter((p) => ids.includes(p.id));
-          setProducts(wishlistProducts);
-        })
-        .catch(() => {});
-    } else {
-      setProducts([]);
-    }
-  }, [ids]);
+    if (!idsKey) return;
+    let alive = true;
+    fetchProducts({ limit: 100 })
+      .then((items) => alive && setCatalogue(items.map(mapProductListItem)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [idsKey]);
+  const products = ids.map((id) => catalogue.find((p) => p.id === id)).filter((p): p is Product => Boolean(p));
 
   const notify = (text: string, undo?: () => void) => {
     setToast({ text, undo });
@@ -136,7 +136,7 @@ export function WishlistView() {
   const removeItem = (p: Product) => {
     const snapshot = useWishlistStore.getState().ids;
     remove(p.id);
-    notify(`Removed ${p.name}`, () => useWishlistStore.setState({ ids: snapshot }));
+    notify(`Removed ${p.name}`, () => useWishlistStore.getState().restore(snapshot));
   };
 
   const moveToBag = (p: Product) => {
@@ -153,7 +153,7 @@ export function WishlistView() {
   const clearAll = () => {
     const snapshot = ids;
     clear();
-    notify("Wishlist cleared", () => useWishlistStore.setState({ ids: snapshot }));
+    notify("Wishlist cleared", () => useWishlistStore.getState().restore(snapshot));
   };
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useStream } from "@langchain/react";
 import { AIMessage, HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
@@ -26,7 +26,9 @@ import {
 import { ChatProductList, type ChatProduct } from "./ChatProductCard";
 import { AGENT_API_URL, AGENT_ASSISTANT_ID } from "@/lib/agent/config";
 import { useAgentStore } from "@/store/agentStore";
+import { useCartStore } from "@/store/cartStore";
 import { useUserStore } from "@/store/userStore";
+import { getValidToken } from "@/lib/api/session";
 
 const suggestions = [
   "A film camera for a beginner",
@@ -177,11 +179,9 @@ export function AgentPanel() {
     setLastPrompt(t);
     // The agent reads the shopper's JWT from its runtime context (ZekContext.token).
     // LangGraph copies config.configurable into context when no context is sent.
-    // Read it at send time so a fresh login or token refresh is picked up.
-    const token = useUserStore.getState().user?.token ?? "";
-    void stream.submit(
-      { messages: [{ type: "human", content: t }] },
-      { config: { configurable: { token } } },
+    // Fetched at send time and refreshed if it's about to expire, so the agent keeps its tools.
+    void getValidToken().then((token) =>
+      stream.submit({ messages: [{ type: "human", content: t }] }, { config: { configurable: { token: token ?? "" } } }),
     );
   };
 
@@ -193,6 +193,16 @@ export function AgentPanel() {
     setOwner(owner);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owner]);
+
+  // The agent can change a signed-in shopper's cart with its tools, so reload the
+  // bag from the server each time a reply finishes.
+  const replying = useRef(false);
+  useEffect(() => {
+    if (replying.current && !stream.isLoading && useUserStore.getState().user?.token) {
+      void useCartStore.getState().refresh().catch(() => {});
+    }
+    replying.current = stream.isLoading;
+  }, [stream.isLoading]);
 
   // Send a prompt handed over by the hero ask-bar or another "Ask ZEK" trigger.
   useEffect(() => {

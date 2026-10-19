@@ -30,6 +30,7 @@ import {
   type ProfileInput,
 } from "@/lib/auth";
 import { AuthError, changePassword, deleteAccount, updateProfile } from "@/lib/api/auth";
+import { getValidToken } from "@/lib/api/session";
 import { useUserStore, type SessionUser } from "@/store/userStore";
 import { useAddressStore, type Address } from "@/store/addressStore";
 
@@ -96,9 +97,9 @@ export function ProfileSection({ user }: { user: SessionUser }) {
 
   const onSubmit = async (values: ProfileInput) => {
     try {
-      const token = user.token;
+      const token = await getValidToken();
       if (!token) {
-        setError("fullName", { message: "Your session has expired. Log out and log in again." });
+        setError("fullName", { message: "Your session has expired. Please sign in again." });
         return;
       }
       const updated = await updateProfile(token, values);
@@ -321,9 +322,9 @@ export function SecuritySection({ user }: { user: SessionUser }) {
 
   const onSubmit = async (v: PasswordChangeInput) => {
     try {
-      const token = user.token;
+      const token = await getValidToken();
       if (!token) {
-        setError("current", { message: "Your session has expired. Log out and log in again." });
+        setError("current", { message: "Your session has expired. Please sign in again." });
         return;
       }
       await changePassword(token, v.current, v.next);
@@ -400,8 +401,9 @@ export function SecuritySection({ user }: { user: SessionUser }) {
               <AlertDialogAction
                 className="bg-[#c62f2f] text-[#fbfbfc] hover:bg-[#c62f2f]/90"
                 onClick={async () => {
-                  if (!user.token) return;
-                  await deleteAccount(user.token);
+                  const token = await getValidToken();
+                  if (!token) return;
+                  await deleteAccount(token);
                   signOut();
                   router.push("/");
                 }}

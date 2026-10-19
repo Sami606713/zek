@@ -9,6 +9,7 @@ import { formatPrice } from "@/lib/catalog";
 import { formatLongDate, formatRange, formatShortDate } from "@/lib/orderDates";
 import { isInProgress, orderMilestones, orderStatus, type OrderStatus } from "@/lib/orderStatus";
 import { useOrderStore, type Order } from "@/store/orderStore";
+import { useUserStore } from "@/store/userStore";
 import { StatusBadge } from "./StatusBadge";
 import { useBuyAgain } from "./useBuyAgain";
 import { useEffect } from "react";
@@ -16,9 +17,13 @@ import { useEffect } from "react";
 function useOrderData() {
   const fetchOrders = useOrderStore((s) => s.fetchOrders);
   const loading = useOrderStore((s) => s.loading);
+  const ordersReady = useOrderStore((s) => s.hydrated);
+  // Wait for the saved session, then load the account's orders (or refresh a guest's).
+  const account = useUserStore((s) => (s.hydrated ? (s.user?.id ?? "guest") : null));
   useEffect(() => {
-    fetchOrders().catch(() => {});
-  }, [fetchOrders]);
+    if (!account || !ordersReady) return;
+    fetchOrders(account !== "guest").catch(() => {});
+  }, [account, ordersReady, fetchOrders]);
   return loading;
 }
 
@@ -37,7 +42,7 @@ const matchesTab = (status: OrderStatus, tab: Tab) =>
   tab === "all" ||
   (tab === "progress" && isInProgress(status)) ||
   (tab === "delivered" && status === "delivered") ||
-  (tab === "cancelled" && status === "cancelled");
+  (tab === "cancelled" && (status === "cancelled" || status === "returned"));
 
 function statusLine(order: Order, status: OrderStatus) {
   const m = orderMilestones(order);
@@ -45,7 +50,9 @@ function statusLine(order: Order, status: OrderStatus) {
     case "delivered":
       return `Delivered ${formatShortDate(m.delivered)}`;
     case "cancelled":
-      return `Cancelled ${formatShortDate(new Date(order.cancelledAt!))}`;
+      return `Cancelled ${formatShortDate(new Date(order.cancelledAt ?? order.createdAt))}`;
+    case "returned":
+      return "Returned";
     default:
       return `Arriving ${formatRange(m.eta)}`;
   }

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import * as ordersApi from "@/lib/api/orders";
 import type { Delivery } from "@/lib/pricing";
+import type { ApiOrderStatus } from "@/lib/api/types";
 
 export type OrderLine = {
   id: string;
@@ -38,17 +39,31 @@ export type Order = {
   };
   promo: string | null;
   cancelledAt?: string;
+  // Real fulfilment data from the server. Orders saved before these existed fall back
+  // to the estimated timeline in lib/orderStatus.
+  status?: ApiOrderStatus;
+  canCancel?: boolean;
+  packedAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  eta?: { from: string; to: string };
+  tracking?: { carrier: string | null; number: string };
 };
 
 type OrderState = {
   orders: Order[];
   hydrated: boolean;
   loading: boolean;
-  placeOrder: (order: Omit<Order, "id" | "createdAt">) => Order;
+  /** Keep a just-placed order (the confirmation page and guests read it from here). */
+  addOrder: (order: Order) => void;
   cancelOrder: (id: string) => Promise<void>;
-  fetchOrders: () => Promise<void>;
+  /** Signed in: the account's orders from the server. Guest: refresh this browser's orders. */
+  fetchOrders: (signedIn: boolean) => Promise<void>;
   setOrders: (orders: Order[]) => void;
 };
+
+const upsert = (orders: Order[], order: Order) =>
+  orders.some((o) => o.id === order.id) ? orders.map((o) => (o.id === order.id ? order : o)) : [order, ...orders];
 
 export const useOrderStore = create<OrderState>()(
   persist(
@@ -56,24 +71,26 @@ export const useOrderStore = create<OrderState>()(
       orders: [],
       hydrated: false,
       loading: false,
-      placeOrder: (input) => {
-        const order: Order = { ...input, id: `ZEK-${Date.now()}`, createdAt: new Date().toISOString() };
-        set((state) => ({ orders: [order, ...state.orders] }));
-        return order;
-      },
+      addOrder: (order) => set((state) => ({ orders: upsert(state.orders, order) })),
       cancelOrder: async (id) => {
-        await ordersApi.cancelOrder(id, "Customer requested cancellation");
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === id ? { ...o, cancelledAt: new Date().toISOString() } : o,
-          ),
-        }));
+        const order = get().orders.find((o) => o.id === id);
+        const updated = await ordersApi.cancelOrder(id, "Customer requested cancellation", order?.email);
+        set((state) => ({ orders: upsert(state.orders, updated) }));
       },
-      fetchOrders: async () => {
+      fetchOrders: async (signedIn) => {
         set({ loading: true });
         try {
-          const orders = await ordersApi.fetchOrders();
-          set({ orders });
+          if (signedIn) {
+            set({ orders: await ordersApi.fetchOrders() });
+            return;
+          }
+          // Guests: re-read each order placed in this browser for its latest status.
+          // Orders the server doesn't know (from before checkout was connected) stay as they are.
+          const current = get().orders;
+          const fresh = await Promise.all(
+            current.map((o) => ordersApi.fetchOrder(o.id, o.email).catch(() => o)),
+          );
+          set({ orders: fresh });
         } finally {
           set({ loading: false });
         }

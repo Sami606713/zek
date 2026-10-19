@@ -15,6 +15,8 @@ export type Address = {
   phone?: string;
 };
 
+// Saved addresses live in the signed-in shopper's account (one of them is the default,
+// used first at checkout). Signing out clears them from this browser.
 type AddressState = {
   addresses: Address[];
   defaultId: string | null;
@@ -22,9 +24,10 @@ type AddressState = {
   loading: boolean;
   save: (address: Omit<Address, "id"> & { id?: string }) => Promise<void>;
   remove: (id: string) => Promise<void>;
-  setDefault: (id: string) => void;
-  fetchAddresses: () => Promise<void>;
-  syncFromServer: (addresses: Address[]) => void;
+  setDefault: (id: string) => Promise<void>;
+  /** Load the account's addresses and which one is the default. */
+  load: () => Promise<void>;
+  reset: () => void;
 };
 
 export const useAddressStore = create<AddressState>()(
@@ -34,36 +37,43 @@ export const useAddressStore = create<AddressState>()(
       defaultId: null,
       hydrated: false,
       loading: false,
-      save: async (input) => {
-        if (input.id) {
-          const updated = await addressApi.updateAddress(input.id, input);
-          set({
-            addresses: get().addresses.map((a) => (a.id === input.id ? updated : a)),
-          });
+      save: async ({ id, ...input }) => {
+        if (id) {
+          const updated = await addressApi.updateAddress(id, input);
+          set({ addresses: get().addresses.map((a) => (a.id === id ? updated : a)) });
         } else {
-          const created = await addressApi.createAddress(input);
-          set({
-            addresses: [...get().addresses, created],
-            defaultId: get().defaultId ?? created.id,
-          });
+          // The first address becomes the default.
+          const first = get().addresses.length === 0;
+          const created = await addressApi.createAddress(input, first);
+          set({ addresses: [...get().addresses, created], defaultId: first ? created.id : get().defaultId });
         }
       },
       remove: async (id) => {
         await addressApi.deleteAddress(id);
-        const addresses = get().addresses.filter((a) => a.id !== id);
-        set({ addresses, defaultId: get().defaultId === id ? (addresses[0]?.id ?? null) : get().defaultId });
+        await get().load(); // the server picks the next default if this one was it
       },
-      setDefault: (id) => set({ defaultId: id }),
-      fetchAddresses: async () => {
+      setDefault: async (id) => {
+        const previous = get().defaultId;
+        set({ defaultId: id });
+        try {
+          await addressApi.setDefaultAddress(id);
+        } catch (e) {
+          set({ defaultId: previous });
+          throw e;
+        }
+      },
+      load: async () => {
         set({ loading: true });
         try {
-          const addresses = await addressApi.fetchAddresses();
-          set({ addresses });
+          const { addresses, defaultId } = await addressApi.fetchAddresses();
+          set({ addresses, defaultId });
+        } catch {
+          // offline or not signed in: keep what's shown
         } finally {
           set({ loading: false });
         }
       },
-      syncFromServer: (addresses) => set({ addresses }),
+      reset: () => set({ addresses: [], defaultId: null }),
     }),
     {
       name: "zek-addresses",

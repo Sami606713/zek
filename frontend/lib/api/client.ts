@@ -10,16 +10,16 @@ export class ApiError extends Error {
   }
 }
 
-function getToken(): string | null {
+/** A fresh access token in the browser (refreshed before it expires), none on the server. */
+async function getToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem("zek-session");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.state?.user ? parsed.state.user.token ?? null : null;
-  } catch {
-    return null;
-  }
+  const { getValidToken } = await import("./session"); // browser-only: keeps it out of server renders
+  return getValidToken();
+}
+
+async function refreshToken(): Promise<string | null> {
+  const { refreshSession } = await import("./session");
+  return refreshSession();
 }
 
 function getSessionId(): string {
@@ -36,15 +36,20 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
   opts: { auth?: boolean; guest?: boolean } = {},
+  retried = false,
 ): Promise<T> {
   const headers: Record<string, string> = {
     ...(typeof options.body === "string" ? { "Content-Type": "application/json" } : {}),
     ...((options.headers as Record<string, string>) ?? {}),
   };
 
+  let sentToken = false;
   if (opts.auth !== false) {
-    const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const token = await getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+      sentToken = true;
+    }
   }
 
   if (opts.guest) {
@@ -52,6 +57,11 @@ async function request<T>(
   }
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+
+  // The login expired between the check and the request (or was revoked): refresh once and retry.
+  if (res.status === 401 && sentToken && !retried && (await refreshToken())) {
+    return request<T>(path, options, opts, true);
+  }
 
   if (res.status === 204) return undefined as T;
 

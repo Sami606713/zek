@@ -1,15 +1,31 @@
 import type { Metadata } from "next";
+import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CaretRight } from "@phosphor-icons/react/ssr";
-import { fetchProductBySlug, fetchRelatedProducts, mapProductDetail, mapProductListItem } from "@/lib/api/catalog";
+import { fetchProductBySlug, fetchProducts, fetchRelatedProducts, mapProductDetail, mapProductListItem } from "@/lib/api/catalog";
 import { ProductDetail } from "@/components/shop/ProductDetail";
 import { ProductRail } from "@/components/home/ProductRail";
 import type { Product } from "@/lib/catalog";
 
+// Product pages show stock, so they refresh every minute (cacheComponents replaces `revalidate`).
+const PRODUCT_CACHE = { revalidate: 60 };
+
+// Prerender the live catalogue (cacheComponents needs at least one real param);
+// products added later still render on their first visit.
+export async function generateStaticParams() {
+  try {
+    const products = await fetchProducts({ limit: 100 });
+    if (products.length) return products.map((p) => ({ id: p.slug }));
+  } catch {}
+  return [{ id: "folio-reader" }]; // API unreachable at build time: one known slug keeps the build valid
+}
+
 export async function generateMetadata({
   params,
 }: PageProps<"/products/[id]">): Promise<Metadata> {
+  "use cache";
+  cacheLife(PRODUCT_CACHE);
   const { id } = await params;
   try {
     const apiProduct = await fetchProductBySlug(id);
@@ -25,6 +41,8 @@ export async function generateMetadata({
 }
 
 export default async function ProductPage({ params }: PageProps<"/products/[id]">) {
+  "use cache";
+  cacheLife(PRODUCT_CACHE);
   const { id } = await params;
 
   let product: Product;

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cacheLife } from "next/cache";
 import { fetchCollections, mapCollection } from "@/lib/api/catalog";
 import { CollectionCard } from "@/components/shop/CollectionCard";
 import { Reveal } from "@/components/motion/Reveal";
@@ -8,9 +9,11 @@ export const metadata: Metadata = {
   description: "Themed edits from the ZEK store: gifts, desk setups, coffee and the latest arrivals.",
 };
 
-export const revalidate = 300;
-
 export default async function CollectionsPage() {
+  // Cached and refreshed every 5 minutes (cacheComponents replaces `export const revalidate`).
+  "use cache";
+  cacheLife({ revalidate: 300 });
+
   let collections: ReturnType<typeof mapCollection>[] = [];
   try {
     const apiCollections = await fetchCollections();

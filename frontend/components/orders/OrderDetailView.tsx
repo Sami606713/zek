@@ -21,8 +21,9 @@ import {
 import { formatPrice } from "@/lib/catalog";
 import { deliveryOptions } from "@/lib/pricing";
 import { formatLongDate, formatRange, formatShortDate } from "@/lib/orderDates";
-import { canCancel, orderMilestones, orderStatus } from "@/lib/orderStatus";
+import { canCancel, orderMilestones, orderStatus, stepReached } from "@/lib/orderStatus";
 import { useOrderStore, type Order } from "@/store/orderStore";
+import { useUserStore } from "@/store/userStore";
 import { fetchOrder } from "@/lib/api/orders";
 import { StatusBadge } from "./StatusBadge";
 import { useBuyAgain } from "./useBuyAgain";
@@ -36,18 +37,23 @@ function Timeline({ order }: { order: Order }) {
   const m = orderMilestones(order);
   const status = orderStatus(order, now);
 
-  const steps =
-    status === "cancelled"
-      ? [
-          { icon: CheckCircle, label: "Order placed", at: m.placed, done: true },
-          { icon: XCircle, label: "Cancelled", at: new Date(order.cancelledAt!), done: true },
-        ]
-      : [
-          { icon: CheckCircle, label: "Order confirmed", at: m.placed, done: true },
-          { icon: Package, label: "Packed", at: m.packed, done: now >= m.packed },
-          { icon: Truck, label: "Shipped", at: m.shipped, done: now >= m.shipped },
-          { icon: MapPin, label: "Delivered", at: m.delivered, done: now >= m.delivered },
-        ];
+  const ended = status === "cancelled" || status === "returned";
+  const steps = ended
+    ? [
+        { icon: CheckCircle, label: "Order placed", at: m.placed, done: true },
+        {
+          icon: XCircle,
+          label: status === "returned" ? "Returned" : "Cancelled",
+          at: new Date(order.cancelledAt ?? order.deliveredAt ?? order.createdAt),
+          done: true,
+        },
+      ]
+    : [
+        { icon: CheckCircle, label: "Order confirmed", at: m.placed, done: true },
+        { icon: Package, label: "Packed", at: m.packed, done: stepReached(status, "packed") },
+        { icon: Truck, label: "Shipped", at: m.shipped, done: stepReached(status, "shipped") },
+        { icon: MapPin, label: "Delivered", at: m.delivered, done: stepReached(status, "delivered") },
+      ];
 
   const current = steps.filter((s) => s.done).length - 1;
 
@@ -71,11 +77,11 @@ function Timeline({ order }: { order: Order }) {
             transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.15 + i * 0.12 }}
             className={`relative z-10 grid size-10 shrink-0 place-items-center rounded-full ${
               done
-                ? label === "Cancelled"
+                ? label === "Cancelled" || label === "Returned"
                   ? "bg-surface-2 text-subtle"
                   : "bg-brand text-brand-ink"
                 : "border border-line bg-bg text-subtle"
-            } ${i === current && status !== "delivered" && status !== "cancelled" ? "ring-4 ring-brand-soft" : ""}`}
+            } ${i === current && status !== "delivered" && !ended ? "ring-4 ring-brand-soft" : ""}`}
           >
             <Icon size={18} weight={done ? "fill" : "regular"} />
           </motion.span>
@@ -88,6 +94,12 @@ function Timeline({ order }: { order: Order }) {
                   ? `Expected ${formatRange(m.eta)}`
                   : `Expected ${formatShortDate(at)}`}
             </p>
+            {label === "Shipped" && done && order.tracking && (
+              <p className="mt-1 text-[13px] text-ink">
+                {order.tracking.carrier ? `${order.tracking.carrier} · ` : ""}
+                Tracking <span className="font-mono font-medium">{order.tracking.number}</span>
+              </p>
+            )}
           </div>
         </li>
       ))}
@@ -176,27 +188,28 @@ export function OrderDetailView({ params }: { params: Promise<{ id: string }> })
   const hydrated = useOrderStore((s) => s.hydrated);
   const order = useOrderStore((s) => s.orders.find((o) => o.id === id));
   const cancelOrder = useOrderStore((s) => s.cancelOrder);
-  const setOrders = useOrderStore((s) => s.setOrders);
   const buyAgain = useBuyAgain();
   const [confirming, setConfirming] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const signedIn = useUserStore((s) => (s.hydrated ? Boolean(s.user) : null));
+  const [loadedId, setLoadedId] = useState<string | null>(null);
 
+  // Always load the latest version, so status changes made by the store (packed,
+  // shipped, tracking) show up even when an older copy is saved in this browser.
   useEffect(() => {
-    if (!order && !fetching && hydrated) {
-      setFetching(true);
-      fetchOrder(id)
-        .then((fetched) => {
-          const exists = useOrderStore.getState().orders.find((o) => o.id === id);
-          if (!exists) {
-            setOrders([fetched, ...useOrderStore.getState().orders]);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setFetching(false));
-    }
-  }, [order, fetching, hydrated, id, setOrders]);
+    if (!hydrated || signedIn === null) return;
+    let alive = true;
+    const saved = useOrderStore.getState().orders.find((o) => o.id === id);
+    fetchOrder(id, signedIn ? undefined : saved?.email)
+      .then((fresh) => alive && useOrderStore.getState().addOrder(fresh))
+      .catch(() => {})
+      .finally(() => alive && setLoadedId(id));
+    return () => {
+      alive = false;
+    };
+  }, [hydrated, signedIn, id]);
+  const fetching = loadedId !== id && !order;
 
-  if (!hydrated) {
+  if (!hydrated || fetching) {
     return (
       <div aria-busy="true" aria-label="Loading order" className="mx-auto max-w-[1100px] animate-pulse px-4 pb-24 pt-24 md:px-8 md:pt-28">
         <div className="h-4 w-40 rounded-full bg-surface-2" />

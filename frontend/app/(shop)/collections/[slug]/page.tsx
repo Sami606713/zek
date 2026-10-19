@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cacheLife } from "next/cache";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,9 +9,21 @@ import { CollectionProducts } from "@/components/shop/CollectionProducts";
 import { Reveal } from "@/components/motion/Reveal";
 import type { Collection, Product } from "@/lib/catalog";
 
+// Prerender the live collections (cacheComponents needs at least one real param);
+// other slugs still render on their first visit.
+export async function generateStaticParams() {
+  try {
+    const collections = await fetchCollections();
+    if (collections.length) return collections.map((c) => ({ slug: c.slug }));
+  } catch {}
+  return [{ slug: "new-this-month" }]; // API unreachable at build time: one known slug keeps the build valid
+}
+
 export async function generateMetadata({
   params,
 }: PageProps<"/collections/[slug]">): Promise<Metadata> {
+  "use cache";
+  cacheLife({ revalidate: 300 });
   const { slug } = await params;
   try {
     const apiCollection = await fetchCollectionBySlug(slug);
@@ -25,11 +38,13 @@ export async function generateMetadata({
   }
 }
 
-export const revalidate = 300;
-
 export default async function CollectionPage({
   params,
 }: PageProps<"/collections/[slug]">) {
+  // Cached and refreshed every 5 minutes (cacheComponents replaces `export const revalidate`).
+  "use cache";
+  cacheLife({ revalidate: 300 });
+
   const { slug } = await params;
 
   let collection: Collection;

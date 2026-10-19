@@ -30,7 +30,10 @@ type CartState = {
   applyPromo: (code: string) => Promise<void>;
   removePromo: () => Promise<void>;
   syncFromServer: (lines: CartLine[], promo: string | null) => void;
+  /** Reload the bag from the server cart (the one the AI agent also uses). */
   refresh: () => Promise<void>;
+  /** After sign-in: move the guest bag into the account, then show the account's bag. */
+  mergeGuest: () => Promise<void>;
 };
 
 const lineKey = (id: string, color?: string) => (color ? `${id}:${color}` : id);
@@ -55,14 +58,17 @@ export const useCartStore = create<CartState>()(
           }
           return { lines: [...state.lines, { key, id, color, quantity, product }] };
         });
-        if (variantId) {
-          set({ syncing: true });
-          try {
-            const result = await cartApi.addToCart(variantId, quantity);
-            get().syncFromServer(result.lines, result.promo);
-          } finally {
-            set({ syncing: false });
-          }
+        set({ syncing: true });
+        try {
+          // Buttons that only know the product (quick add, wishlist, buy again) get its
+          // matching in-stock variant, so every item lives in the server cart, which the
+          // bag, checkout and the AI agent all read.
+          const variant = variantId ?? (await cartApi.resolveVariantId(id, color).catch(() => null));
+          if (!variant) return; // offline or out of stock: keep the optimistic local line
+          const result = await cartApi.addToCart(variant, quantity);
+          get().syncFromServer(result.lines, result.promo);
+        } finally {
+          set({ syncing: false });
         }
       },
       setQuantity: async (key, quantity) => {
@@ -129,6 +135,18 @@ export const useCartStore = create<CartState>()(
         try {
           const result = await cartApi.fetchCart();
           get().syncFromServer(result.lines, result.promo);
+        } finally {
+          set({ syncing: false });
+        }
+      },
+      mergeGuest: async () => {
+        set({ syncing: true });
+        try {
+          const result = await cartApi.mergeCart();
+          get().syncFromServer(result.lines, result.promo);
+        } catch {
+          // Nothing to merge (or the merge failed): still show the account's own bag.
+          await get().refresh().catch(() => {});
         } finally {
           set({ syncing: false });
         }
