@@ -139,3 +139,16 @@ export function passwordStrength(pw: string) {
   if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
   return { score, label: ["Too short", "Weak", "Fair", "Good", "Strong"][score] };
 }
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Enter a valid email."),
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    password: registerSchema.shape.password,
+    confirm: z.string().min(1, "Repeat the new password."),
+  })
+  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match." });
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

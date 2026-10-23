@@ -44,6 +44,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { conversations } from "@/lib/admin/mock";
 import { useLowStock, useOrdersToPack } from "@/lib/admin/live";
 import { useUserStore } from "@/store/userStore";
+import { ZekSymbol, ZekWordmark } from "@/components/brand/ZekLogo";
 
 const flagged = conversations.filter((c) => c.flagged).length;
 
@@ -109,11 +110,9 @@ export function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/admin">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink text-[13px] font-bold text-bg">
-                  Z
-                </span>
-                <span className="flex flex-col leading-tight">
-                  <span className="text-[15px] font-semibold tracking-[-0.03em] text-ink">ZEK</span>
+                <ZekSymbol className="size-8 shrink-0" />
+                <span className="flex flex-col gap-1 leading-tight">
+                  <ZekWordmark className="h-3.5 w-auto self-start" title="ZEK" />
                   <span className="text-[12px] text-subtle">Admin</span>
                 </span>
               </Link>

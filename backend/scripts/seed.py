@@ -9,7 +9,6 @@ Seeds (all safe to run again: existing records are matched and skipped):
   - Store settings (shipping and tax rates)
   - Orders in every status and channel, with status history and refunds
   - Reviews, wishlists, a saved cart
-  - Agent conversations (web, WhatsApp, voice) with tool calls
 
 Usage (from the backend folder):
   python scripts/seed.py              add whatever is missing
@@ -43,9 +42,7 @@ from src.app.api.v1.models import (  # noqa: E402
     Category,
     Collection,
     CollectionProduct,
-    Conversation,
     Discount,
-    Message,
     Order,
     OrderItem,
     OrderStatusHistory,
@@ -59,10 +56,8 @@ from src.app.api.v1.models import (  # noqa: E402
     WishlistItem,
 )
 from src.app.api.v1.models.base import (  # noqa: E402
-    ConversationOutcome,
     DeliveryMethod,
     DiscountType,
-    MessageRole,
     OrderStatus,
     PaymentMethod,
     PaymentStatus,
@@ -441,74 +436,6 @@ async def seed_customer_extras(s, users, products, variants) -> None:
     log(f"  shoppers     {len(REVIEWS)} reviews, wishlists for {len(WISHLISTS)}, 1 saved cart ({email})")
 
 
-async def seed_conversations(s, users, products, orders) -> None:
-    def tool(name, args):
-        return [{"id": f"call_{uuid.uuid4().hex[:8]}", "name": name, "args": args}]
-
-    vela, keys = products["vela-35"], products["flat-keys"]
-    chats = [
-        dict(
-            session_id="web-demo-amna-01", user="amna@example.com", channel=SalesChannel.AGENT, outcome=ConversationOutcome.PURCHASED,
-            title="Film camera under $150", order="ZEK-482913", ago=0.25,
-            messages=[
-                (MessageRole.USER, "I want a film camera to learn on. Under $150.", None),
-                (MessageRole.ASSISTANT, None, tool("search_products", {"q": "film camera", "max_price": 150})),
-                (MessageRole.TOOL, '[{"slug": "vela-35", "price": "129.00"}]', None),
-                (MessageRole.ASSISTANT, "The Vela 35 fits. Fully manual, light, and it is on sale this week for $129.", None),
-                (MessageRole.USER, "Add it in black, and use my 10% code.", None),
-                (MessageRole.ASSISTANT, None, tool("add_to_cart", {"product": vela.slug, "color": "Black", "quantity": 1})),
-                (MessageRole.ASSISTANT, "Done. ZEK10 is applied. Want me to check out with your saved card?", None),
-            ],
-        ),
-        dict(
-            session_id="wa-923001234567-01", user="bilal@example.com", channel=SalesChannel.WHATSAPP, outcome=ConversationOutcome.ANSWERED,
-            title="Where is my e-reader?", order=None, ago=0.4, phone="+923001234567",
-            messages=[
-                (MessageRole.USER, "Hi, where is my order ZEK-377104?", None),
-                (MessageRole.ASSISTANT, None, tool("get_order_status", {"order_number": "ZEK-377104"})),
-                (MessageRole.TOOL, '{"status": "packed", "eta": "1 to 2 business days"}', None),
-                (MessageRole.ASSISTANT, "Your Folio E-Reader is packed and leaves today by express. Expect it in 1 to 2 business days.", None),
-            ],
-        ),
-        dict(
-            session_id="voice-14155550142-01", user=None, channel=SalesChannel.VOICE, outcome=ConversationOutcome.UNRESOLVED,
-            title="Keyboard layout question", order=None, ago=1.5, phone="+14155550142", flagged=True,
-            messages=[
-                (MessageRole.USER, "Does the Flat Keys keyboard come with a German layout?", None),
-                (MessageRole.ASSISTANT, None, tool("get_product", {"slug": keys.slug})),
-                (MessageRole.ASSISTANT, "I can see Mac and Windows layouts, but I am not sure about German. Let me get someone to check.", None),
-            ],
-        ),
-    ]
-    added = 0
-    for chat in chats:
-        if await s.scalar(select(Conversation.id).where(Conversation.session_id == chat["session_id"])):
-            continue
-        started = NOW - timedelta(days=chat["ago"])
-        conv = Conversation(
-            id=uuid.uuid4(),
-            session_id=chat["session_id"],
-            user_id=users[chat["user"]].id if chat["user"] else None,
-            channel=chat["channel"],
-            customer_phone=chat.get("phone"),
-            title=chat["title"],
-            outcome=chat["outcome"],
-            is_flagged=chat.get("flagged", False),
-            message_count=len(chat["messages"]),
-            last_message_at=started + timedelta(minutes=len(chat["messages"])),
-            created_at=started,
-        )
-        s.add(conv)
-        await s.flush()
-        for i, (role, content, calls) in enumerate(chat["messages"]):
-            s.add(Message(conversation_id=conv.id, role=role, content=content, tool_calls=calls, model="agnes-3.0-flash" if role == MessageRole.ASSISTANT else None,
-                          created_at=started + timedelta(minutes=i)))
-        if chat["order"] and chat["order"] in orders:
-            orders[chat["order"]].conversation_id = conv.id
-        added += 1
-    log(f"  agent chats  {len(chats)} (web purchase, WhatsApp order status, flagged voice call)")
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
@@ -531,9 +458,8 @@ async def main(fresh: bool = False) -> None:
         users = await seed_users(s)
         products, variants = await seed_catalogue(s)
         codes = await seed_discounts(s)
-        orders = await seed_orders(s, users, products, variants, codes)
+        await seed_orders(s, users, products, variants, codes)
         await seed_customer_extras(s, users, products, variants)
-        await seed_conversations(s, users, products, orders)
         await s.commit()
     await engine.dispose()
     log("🎉 Seed complete.\n")

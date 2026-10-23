@@ -33,8 +33,6 @@ const columns = [
     title: "Company",
     links: [
       { href: "/about", label: "About" },
-      { href: "/careers", label: "Careers" },
-      { href: "/press", label: "Press" },
     ],
   },
 ];
@@ -92,7 +90,7 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col-reverse items-start justify-between gap-6 border-t border-line py-6 md:flex-row md:items-center">
           <div className="flex flex-col gap-3 text-[13px] text-subtle sm:flex-row sm:items-center sm:gap-6">
-            <Logo className="scale-90 origin-left" />
+            <Logo />
             <p>&copy; 2026 ZEK. All rights reserved.</p>
             <div className="flex gap-5">
               <Link href="/privacy" className="hover:text-ink">

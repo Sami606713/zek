@@ -128,3 +128,21 @@ export async function refreshToken(refreshToken: string): Promise<ApiToken> {
   if (!res.ok) throw new AuthError("Session expired");
   return (await res.json()) as ApiToken;
 }
+
+/** Ask for a reset link. The answer is the same whether or not the email has an account. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api.post<{ message: string }>("/users/forgot-password", { email }, { auth: false });
+}
+
+/** Set a new password with the token from the reset link. It works once, for 15 minutes. */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  try {
+    await api.post<void>("/users/reset-password", { token, new_password: newPassword }, { auth: false });
+  } catch (e) {
+    throw new AuthError(
+      e instanceof Error && /invalid|expired/i.test(e.message)
+        ? "This reset link has expired or was already used. Ask for a new one."
+        : "Couldn't reset your password. Please try again.",
+    );
+  }
+}

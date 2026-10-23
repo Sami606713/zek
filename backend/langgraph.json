@@ -12,6 +12,9 @@
     "store": {
         "path": "./src/app/agent/store/store.py:generate_store"
     },
+    "checkpointer": {
+        "path": "./src/app/agent/checkpointer/checkpointer.py:generate_checkpointer"
+    },
     "env": ".env",
     "image_distro": "wolfi"
 }

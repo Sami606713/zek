@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useStream } from "@langchain/react";
 import { AIMessage, HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
-import { ArrowClockwise, Sparkle, WarningCircle, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowClockwise, WarningCircle, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   Conversation,
   ConversationContent,
@@ -29,6 +29,7 @@ import { useAgentStore } from "@/store/agentStore";
 import { useCartStore } from "@/store/cartStore";
 import { useUserStore } from "@/store/userStore";
 import { getValidToken } from "@/lib/api/session";
+import { ZekSymbol } from "@/components/brand/ZekLogo";
 
 const suggestions = [
   "A film camera for a beginner",
@@ -262,9 +263,7 @@ export function AgentPanel() {
             className="fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-hidden bg-bg shadow-soft md:inset-y-3 md:right-3 md:w-[460px] md:rounded-panel md:border md:border-line"
           >
             <header className="flex items-center gap-3 border-b border-line px-5 py-4">
-              <span className="grid size-9 place-items-center rounded-full bg-brand text-brand-ink">
-                <Sparkle size={16} weight="fill" />
-              </span>
+              <ZekSymbol className="size-9 shrink-0" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-[15px] font-semibold text-ink">ZEK</h2>
                 <p className="text-[12px] text-subtle">{stream.isLoading ? "Working on it" : "Shopping assistant"}</p>

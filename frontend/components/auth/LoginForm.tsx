@@ -56,7 +56,11 @@ export function LoginForm() {
           label="Password"
           autoComplete="current-password"
           error={errors.password?.message}
-          action={<span className="text-[13px] text-subtle">Forgot it? Reset is coming soon.</span>}
+          action={
+            <Link href="/forgot-password" className="text-[13px] font-medium text-ink underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          }
           {...register("password")}
         />
         <button

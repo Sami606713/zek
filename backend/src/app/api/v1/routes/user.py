@@ -114,8 +114,10 @@ async def forgot_password(payload: PasswordResetRequest, service: UserServiceDep
     """Always returns the same response, so it cannot be used to discover registered emails."""
     token = await service.request_password_reset(payload.email)
     if token:
-        # TODO: send the reset link by email once the notification service exists.
+        # TODO: email the link once the notification service exists.
         logger.info("Password reset requested for %s", payload.email)
+        if settings.LOG_PASSWORD_RESET_LINKS:
+            logger.warning("DEV ONLY reset link for %s: %s?token=%s", payload.email, settings.PASSWORD_RESET_URL, token)
     return MessageResponse(message="If an account exists for that email, a reset link has been sent.")
 
 

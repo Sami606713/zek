@@ -23,6 +23,9 @@
   --brand-soft: rgb(47 75 255 / 0.08);
   --danger: #c62f2f;
   --shadow: 220 30% 20%;
+  /* Logo colors from the brand board */
+  --logo-blue: #0a74fa;
+  --logo-gray: #45454d;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -38,6 +41,7 @@
     --brand-soft: rgb(124 140 255 / 0.12);
     --danger: #ff8a8a;
     --shadow: 225 40% 2%;
+    --logo-gray: #5c5c66; /* a touch lighter so the grey strokes read on dark pages */
   }
 }
 

@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     PASSWORD_RESET_EXPIRE_MINUTES: int = 15
+    # Page that sets the new password; the reset token is added as ?token=...
+    PASSWORD_RESET_URL: str = "http://localhost:3000/reset-password"
+    # Local development only: write reset links to the server log (no email service yet).
+    # Never enable in production: anyone reading the logs could reset that account.
+    LOG_PASSWORD_RESET_LINKS: bool = False
 
     # Media storage (Cloudinary). Either the three values below, or CLOUDINARY_URL=cloudinary://key:secret@cloud
     CLOUDINARY_URL: str | None = None

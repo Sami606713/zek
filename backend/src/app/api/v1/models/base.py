@@ -95,17 +95,3 @@ class RefundStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class ConversationOutcome(str, enum.Enum):
-    OPEN = "open"
-    PURCHASED = "purchased"
-    ANSWERED = "answered"
-    UNRESOLVED = "unresolved"
-    HANDED_OFF = "handed_off"    # a human admin took over
-
-
-class MessageRole(str, enum.Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
-    SYSTEM = "system"
-    ADMIN = "admin"              # human reply sent from the admin panel

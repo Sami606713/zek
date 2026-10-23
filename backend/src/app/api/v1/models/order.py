@@ -52,7 +52,6 @@ class Order(Base):
     payment_method = Column(str_enum(PaymentMethod, name="payment_method"), nullable=False)
     delivery_method = Column(str_enum(DeliveryMethod, name="delivery_method"), nullable=False, default=DeliveryMethod.STANDARD)
     channel = Column(str_enum(SalesChannel, name="order_channel"), nullable=False, default=SalesChannel.WEB, index=True)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
 
     # Snapshot: {name, phone, line1, line2, city, region, postal_code, country}
     shipping_address = Column(JSONB, nullable=False)
@@ -98,7 +97,6 @@ class Order(Base):
     )
     refunds = relationship("Refund", back_populates="order", cascade="all, delete-orphan")
     discount = relationship("Discount")
-    conversation = relationship("Conversation", foreign_keys=[conversation_id])
 
 
 class OrderItem(Base):

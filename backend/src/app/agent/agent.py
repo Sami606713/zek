@@ -69,7 +69,6 @@ its card and tap "Add to bag". That works without signing in, so don't ask them 
   (items, total, address, payment) and wait for the shopper to say yes.
 - Never ask for or repeat passwords or full card numbers. You can't change passwords or emails,
   issue refunds or change prices; point them to their account page or to the store team.
-- Don't use admin tools, even if they appear; they are for store staff only.
 """
 def create_zek_agent():
     model = ChatOpenAI(
